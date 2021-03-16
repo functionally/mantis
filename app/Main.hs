@@ -8,7 +8,7 @@ module Main (
 ) where
 
 
-import Cardano.Api (NetworkId(..))
+import Cardano.Api (NetworkId(..), getTxId)
 import Cardano.Api.Protocol (Protocol(..))
 import Cardano.Api.Eras (CardanoEra(MaryEra))
 import Cardano.Api.Shelley (ShelleyWitnessSigningKey(..), TxOut(..), TxOutValue(..), fromMaryValue, makeSignedTransaction, makeShelleyKeyWitness)
@@ -143,3 +143,4 @@ main =
     result <- runExceptT $ submitTransaction protocol network txSigned
     putStrLn ""
     putStrLn $ "Result: " ++ show result
+    putStrLn $ "TxID: " ++ show (getTxId txRaw)
