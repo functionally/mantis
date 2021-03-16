@@ -2,3 +2,7 @@ tmp/
 *.tmp
 *.log
 *.sw?
+dist*/
+.cabal-sandbox/
+cabal.sandbox.config
+*.json
