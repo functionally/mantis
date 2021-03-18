@@ -15,6 +15,7 @@ executable mantis
                     Mantis.Script
                     Mantis.Transaction
                     Mantis.Wallet
+                    Paths_mantis
   build-depends   : base >= 4.14 && < 4.15
                   , aeson
                   , aeson-pretty
@@ -26,6 +27,7 @@ executable mantis
                   , cardano-node
                   , containers
                   , mtl
+                  , optparse-applicative
                   , ouroboros-consensus-cardano
                   , ouroboros-consensus-shelley
                   , ouroboros-network

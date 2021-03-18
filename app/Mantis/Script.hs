@@ -1,30 +1,35 @@
 
-{-# LANGUAGE GADTs #-}
-
-
 module Mantis.Script (
-  exampleScript
-, exampleScriptHash
+  mintingScript
 ) where
 
 
-import Cardano.Api.Typed (SimpleScript(..), Script(..), ScriptHash, SimpleScript(..), SimpleScriptV2, SimpleScriptVersion(..), SlotNo(..), TimeLocksSupported(..), hashScript)
-import GHC.Exts (IsString(..))
+import Cardano.Api.Eras (MaryEra)
+import Cardano.Api.Typed (Hash, PaymentKey, SimpleScript(..), Script(..), ScriptHash, ScriptInEra(..), ScriptLanguageInEra(..), SimpleScript(..), SimpleScriptVersion(..), SlotNo, TimeLocksSupported(..), hashScript)
 
 
-exampleScript :: Script SimpleScriptV2
-exampleScript =
-   SimpleScript SimpleScriptV2
-     $ RequireAllOf
-     [
-       RequireSignature $ fromString "b395c1a9464d419c69d05c148a19d44130c249abfb990c6a3fcd0b07"
-     , RequireAnyOf
-       [
-         RequireTimeBefore TimeLocksInSimpleScriptV2 $ SlotNo 23164614
-       , RequireTimeAfter  TimeLocksInSimpleScriptV2 $ SlotNo 57638214
-       ]
-     ]
-
-
-exampleScriptHash :: ScriptHash
-exampleScriptHash = hashScript exampleScript
+mintingScript :: Hash PaymentKey
+              -> Maybe SlotNo
+              -> (ScriptInEra MaryEra, ScriptHash)
+mintingScript hash Nothing =
+  let
+    script = SimpleScript SimpleScriptV2
+      $ RequireSignature hash
+  in
+    (
+      ScriptInEra SimpleScriptV2InMary script
+    , hashScript script
+    )
+mintingScript hash (Just slot) =
+  let
+    script = SimpleScript SimpleScriptV2
+      $ RequireAllOf
+      [
+        RequireSignature hash
+      , RequireTimeBefore TimeLocksInSimpleScriptV2 slot
+      ]
+  in
+    (
+      ScriptInEra SimpleScriptV2InMary script
+    , hashScript script
+    )

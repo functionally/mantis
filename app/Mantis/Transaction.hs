@@ -13,7 +13,7 @@ module Mantis.Transaction (
 
 import Cardano.Api.Shelley (TxBodyContent(..), TxId(..), TxIn(..), TxOut(..), TxOutValue(..), fromMaryValue, fromShelleyAddr)
 import Cardano.Api.Eras (CardanoEra(..), MaryEra, ShelleyLedgerEra)
-import Cardano.Api.Typed (MultiAssetSupportedInEra(..), NetworkId, TxAuxScripts(..), TxCertificates(..), TxFee(..), TxFeesExplicitInEra(..), TxMetadata, TxMetadataInEra(..), TxMetadataSupportedInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), ValidityNoUpperBoundSupportedInEra(..), estimateTransactionFee, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, txFeesExplicitInEra, validityNoUpperBoundSupportedInEra)
+import Cardano.Api.Typed (AuxScriptsSupportedInEra(..), MultiAssetSupportedInEra(..), NetworkId, ScriptInEra, TxAuxScripts(..), TxCertificates(..), TxFee(..), TxFeesExplicitInEra(..), TxMetadata, TxMetadataInEra(..), TxMetadataSupportedInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), ValidityNoUpperBoundSupportedInEra(..), Value, auxScriptsSupportedInEra, estimateTransactionFee, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, txFeesExplicitInEra, validityNoUpperBoundSupportedInEra)
 import Data.Aeson (decodeFileStrict)
 
 import qualified Data.Map.Strict                  as M (Map, assocs, fromList)
@@ -30,21 +30,30 @@ supportedMultiAsset :: MultiAssetSupportedInEra MaryEra
 Right supportedMultiAsset = multiAssetSupportedInEra MaryEra
 
 
+supportedScripts :: AuxScriptsSupportedInEra MaryEra
+Just supportedScripts = auxScriptsSupportedInEra MaryEra
+
+
 explicitFees :: TxFeesExplicitInEra MaryEra
 Right explicitFees = txFeesExplicitInEra MaryEra
 
 
-makeTransaction :: [TxIn] -> [TxOut MaryEra] -> Maybe TxMetadata -> TxBodyContent MaryEra
-makeTransaction txIns txOuts metadata=
+makeTransaction :: [TxIn]
+                -> [TxOut MaryEra]
+                -> Maybe TxMetadata
+                -> Maybe (ScriptInEra MaryEra)
+                -> Maybe Value
+                -> TxBodyContent MaryEra
+makeTransaction txIns txOuts metadata script minting =
   let
-    txFee = TxFeeExplicit explicitFees 0
-    txValidityRange = (TxValidityNoLowerBound, TxValidityNoUpperBound supportedUpperBound)
-    txMetadata = maybe TxMetadataNone (TxMetadataInEra TxMetadataInMaryEra) metadata
-    txAuxScripts = TxAuxScriptsNone
-    txWithdrawals = TxWithdrawalsNone
-    txCertificates = TxCertificatesNone
+    txFee            = TxFeeExplicit explicitFees 0
+    txValidityRange  = (TxValidityNoLowerBound, TxValidityNoUpperBound supportedUpperBound)
+    txMetadata       = maybe TxMetadataNone (TxMetadataInEra TxMetadataInMaryEra) metadata
+    txAuxScripts     = maybe TxAuxScriptsNone (TxAuxScripts supportedScripts . pure) script
+    txWithdrawals    = TxWithdrawalsNone
+    txCertificates   = TxCertificatesNone
     txUpdateProposal = TxUpdateProposalNone
-    txMintValue = TxMintNone
+    txMintValue      = maybe TxMintNone (TxMintValue supportedMultiAsset) minting
   in
     TxBodyContent{..}
 

@@ -10,7 +10,7 @@ module Mantis.Wallet (
 ) where
 
 
-import Cardano.Api.Typed (AddressAny, AsType(..), Hash, PaymentExtendedKey, SigningKey, deserialiseAddress, verificationKeyHash)
+import Cardano.Api.Typed (AddressAny, AsType(..), Hash, PaymentExtendedKey, PaymentKey, SigningKey, castVerificationKey, deserialiseAddress, verificationKeyHash)
 import Control.Monad.Except (runExceptT)
 
 import qualified Cardano.CLI.Shelley.Key         as CLI (VerificationKeyTextOrFile(..), readKeyFileTextEnvelope)
@@ -34,9 +34,10 @@ readVerificationKey filename =
       Right k -> return k
 
 
-makeVerificationKeyHash :: CLI.SomeAddressVerificationKey -> Hash PaymentExtendedKey
-makeVerificationKeyHash (CLI.APaymentExtendedVerificationKey key) = verificationKeyHash key
+makeVerificationKeyHash :: CLI.SomeAddressVerificationKey -> Hash PaymentKey
+makeVerificationKeyHash (CLI.APaymentExtendedVerificationKey key) = verificationKeyHash $ castVerificationKey key
 makeVerificationKeyHash _ = undefined
+
 
 
 readSigningKey :: FilePath -> IO (SigningKey PaymentExtendedKey)
