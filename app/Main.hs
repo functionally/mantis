@@ -15,7 +15,7 @@ import Cardano.Api.Shelley (ShelleyWitnessSigningKey(..), TxOut(..), fromMaryVal
 import Cardano.Api.Typed (NetworkMagic(..), SlotNo(..), anyAddressInEra, makeTransactionBody)
 import Control.Monad.Except (runExceptT)
 import Data.Aeson (encode)
-import Data.Maybe (maybeToList)
+import Data.Maybe (fromMaybe, maybeToList)
 import Data.Version (showVersion)
 import Data.Word (Word32, Word64)
 import Mantis.Query (queryProtocol, queryTip, queryUTxO, submitTransaction)
@@ -44,10 +44,10 @@ data Configuration =
 data Mantis = Mantis
   {
     configFile   :: FilePath
-  , metadataFile :: Maybe FilePath
   , tokenName    :: Maybe String
-  , tokenCount   :: Integer
+  , tokenCount   :: Maybe Integer
   , tokenSlot    :: Maybe Int
+  , metadataFile :: Maybe FilePath
   }
 
 
@@ -62,11 +62,11 @@ main =
       versionOption = O.infoOption ("Mantis " ++ showVersion version) (O.long "version" <> O.help "Show version.")
       programOptions =
         Mantis
-          <$>             O.strArgument   ( O.metavar "CONFIG"    <>              O.help "Path to configuration file."                       )
-          <*> O.optional (O.strArgument   $ O.metavar "METADATA"  <>              O.help "Path to metadata JSON file."                       )
-          <*> O.optional (O.strArgument   $ O.metavar "TOKEN"     <>              O.help "Name of token to mint."                            )
-          <*>             O.option O.auto ( O.metavar "count"     <> O.value 1 <> O.help "Number of tokens to mint."                         )
-          <*> O.optional (O.option O.auto $ O.long    "before"    <>              O.help "Relative number of slots when tokens are mintable.")
+          <$>             O.strArgument   ( O.metavar "CONFIG"    <> O.help "Path to configuration file."                                       )
+          <*> O.optional (O.strArgument   $ O.metavar "TOKEN"     <> O.help "Name of token to mint or burn."                                    )
+          <*> O.optional (O.option O.auto $ O.long    "count"     <> O.help "Number of tokens to mint or burn."                                 )
+          <*> O.optional (O.option O.auto $ O.long    "before"    <> O.help "Number of slots into the future when tokens are mintable/burnable.")
+          <*> O.optional (O.strOption     $ O.long    "metadata"  <> O.help "Path to metadata JSON file."                                       )
     Mantis{..} <- O.execParser parser
 
     Configuration{..} <- read <$> readFile configFile
@@ -117,7 +117,11 @@ main =
         case tokenName of
           Nothing   -> (Nothing, Nothing, fromMaryValue value)
           Just name -> let
-                         (script', minting', value'') = makeMinting value name tokenCount verificationKeyHash
+                         (script', minting', value'') = makeMinting
+                                                          value
+                                                          name
+                                                          (fromMaybe 1 tokenCount)
+                                                          verificationKeyHash
                                                           $ SlotNo . (tip +) . toEnum <$> tokenSlot
                        in
                          (Just script', Just minting', value'')
