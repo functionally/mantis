@@ -4,6 +4,16 @@ Mantis Tools for Cardano
 This tool posts metadata or mints/burns tokens. It gathers the UTxO from the address into a transaction with output to that same address, but minting/burning tokens and/or posting metadata in the process. The cost is the minimum network fee for the transaction.
 
 
+Required environment variable
+-----------------------------
+
+The tool requires the environment variable `CARDANO_NODE_SOCKET_PATH` to be set. For example,
+
+	export CARDANO_NODE_SOCKET_PATH=$USER/.local/share/Daedalus/$NETWORK/cardano-node.socket
+
+where `$NETWORK` is `mainnet` or `testnet`.
+
+
 Command-line options
 --------------------
 
