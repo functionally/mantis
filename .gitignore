@@ -5,4 +5,7 @@ tmp/
 dist*/
 .cabal-sandbox/
 cabal.sandbox.config
+*.mantis
+*.skey
+*.vkey
 *.json

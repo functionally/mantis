@@ -1,5 +1,7 @@
 
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs            #-}
+{-# LANGUAGE RecordWildCards  #-}
 
 
 module Mantis.Transaction (
@@ -8,18 +10,28 @@ module Mantis.Transaction (
 , fromShelleyUTxO
 , supportedMultiAsset
 , readMetadata
+, printUTxO
+, printValue
+, summarizeValues
+, makeMinting
 ) where
 
 
 import Cardano.Api.Shelley (TxBodyContent(..), TxId(..), TxIn(..), TxOut(..), TxOutValue(..), fromMaryValue, fromShelleyAddr)
 import Cardano.Api.Eras (CardanoEra(..), MaryEra, ShelleyLedgerEra)
-import Cardano.Api.Typed (AuxScriptsSupportedInEra(..), MultiAssetSupportedInEra(..), NetworkId, ScriptInEra, TxAuxScripts(..), TxCertificates(..), TxFee(..), TxFeesExplicitInEra(..), TxMetadata, TxMetadataInEra(..), TxMetadataSupportedInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), ValidityNoUpperBoundSupportedInEra(..), Value, auxScriptsSupportedInEra, estimateTransactionFee, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, txFeesExplicitInEra, validityNoUpperBoundSupportedInEra)
+import Cardano.Api.Typed (AssetId(..), AssetName(..), AuxScriptsSupportedInEra(..), MultiAssetSupportedInEra(..), Hash, NetworkId, PaymentKey, PolicyId(..), Quantity(..), ScriptInEra, SlotNo(..), TxAuxScripts(..), TxCertificates(..), TxFee(..), TxFeesExplicitInEra(..), TxMetadata, TxMetadataInEra(..), TxMetadataSupportedInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), ValidityNoUpperBoundSupportedInEra(..), Value, auxScriptsSupportedInEra, estimateTransactionFee, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, txFeesExplicitInEra, validityNoUpperBoundSupportedInEra, valueFromList)
 import Data.Aeson (decodeFileStrict)
+import Mantis.Script (mintingScript)
 
-import qualified Data.Map.Strict                  as M (Map, assocs, fromList)
-import qualified Ouroboros.Consensus.Shelley.Eras as Ouroboros (StandardMary)
-import qualified Shelley.Spec.Ledger.PParams      as Shelley (PParams)
-import qualified Shelley.Spec.Ledger.API          as Shelley (PParams'(..), TxId(..), TxIn(..), TxOut(..), UTxO(..))
+import qualified Cardano.Ledger.Mary.Value            as Mary      (AssetName(..), PolicyID(..), Value(..))
+import qualified Data.ByteString.Char8                as BS        (pack)
+import qualified Data.Map.Strict                      as M         (Map, assocs, fromList)
+import qualified Ouroboros.Consensus.Shelley.Eras     as Ouroboros (StandardMary)
+import qualified Shelley.Spec.Ledger.PParams          as Shelley   (PParams)
+import qualified Shelley.Spec.Ledger.API              as Shelley   (PParams'(..), ScriptHash(..))
+import qualified Shelley.Spec.Ledger.TxBody           as Shelley   (TxId(..), TxIn(..), TxOut(..))
+import qualified Shelley.Spec.Ledger.UTxO             as Shelley   (UTxO(..))
+import qualified Ouroboros.Consensus.Shelley.Protocol as Ouroboros (StandardCrypto)
 
 
 supportedUpperBound :: ValidityNoUpperBoundSupportedInEra MaryEra
@@ -106,3 +118,68 @@ readMetadata filename =
     let
       Right metadata = metadataFromJson TxMetadataJsonNoSchema json
     return metadata
+
+
+printUTxO :: String -> Shelley.UTxO Ouroboros.StandardMary -> IO ()
+printUTxO indent (Shelley.UTxO utxoMap) =
+  sequence_
+    [
+      do
+        putStrLn $ indent ++ "Transaction: " ++ show' txhash  ++ "#" ++ show txin
+        printValue (indent ++ "  ") value'
+    |
+      (Shelley.TxIn (Shelley.TxId txhash) txin, Shelley.TxOut _ value') <- M.assocs utxoMap
+    ]
+
+
+printValue :: String -> Mary.Value era -> IO ()
+printValue indent (Mary.Value lovelace policies) =
+  do
+    putStrLn $ indent ++ show lovelace ++ " Lovelace"
+    sequence_
+      [
+        putStrLn $ indent ++ show quantity ++ "  " ++ show' policy ++ "." ++ show' asset
+      |
+        (Mary.PolicyID (Shelley.ScriptHash policy), assets) <- M.assocs policies
+      , (Mary.AssetName asset, quantity) <- M.assocs assets
+      ]
+
+
+show' :: Show a => a -> String
+show' = init . tail . show
+
+
+summarizeValues :: Shelley.UTxO Ouroboros.StandardMary -> (Int, Mary.Value Ouroboros.StandardCrypto)
+summarizeValues (Shelley.UTxO utxoMap) =
+  let
+    values =  
+      [
+        value'
+      |
+        (_, Shelley.TxOut _ value') <- M.assocs utxoMap
+      ]
+  in
+    (length values, mconcat values)
+
+
+
+makeMinting :: Mary.Value Ouroboros.StandardCrypto
+            -> String
+            -> Integer
+            -> Hash PaymentKey
+            -> Maybe SlotNo
+            -> (ScriptInEra MaryEra, Value, Value)
+makeMinting value name count verification before =
+  let
+    (script, scriptHash) = mintingScript verification before
+    minting = valueFromList
+      [(
+        AssetId (PolicyId scriptHash) (AssetName $ BS.pack name)
+      , Quantity count
+      )]
+  in
+    (
+      script
+    , minting
+    , fromMaryValue value <> minting
+    )
