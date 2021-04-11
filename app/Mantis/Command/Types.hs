@@ -29,10 +29,14 @@ data Mantis =
     , tokenSlot    :: Maybe Int
     , metadataFile :: Maybe FilePath
     }
+  | Script
+    {
+      configFile :: FilePath
+    , scriptFile :: Maybe FilePath
+    , tokenSlot  :: Maybe Int
+    }
   | Fingerprint
     {
       policyId  :: String
     , assetName :: String
     }
-
-

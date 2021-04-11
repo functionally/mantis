@@ -1,5 +1,4 @@
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 
 
@@ -17,24 +16,24 @@ import Cardano.Api.Typed (NetworkMagic(..), SlotNo(..), anyAddressInEra, makeTra
 import Control.Monad.Except (runExceptT)
 import Data.Aeson (encode)
 import Data.Maybe (fromMaybe, maybeToList)
-import Data.Version (showVersion)
 import Mantis.Command.Types (Configuration(..), Mantis(..))
 import Mantis.Query (queryProtocol, queryTip, queryUTxO, submitTransaction)
 import Mantis.Transaction (fromShelleyUTxO, includeFee, makeMinting, makeTransaction, printUTxO, printValue, readMetadata, summarizeValues, supportedMultiAsset)
 import Mantis.Wallet (makeVerificationKeyHash, readAddress, readSigningKey, readVerificationKey)
 
-import qualified Cardano.Chain.Slotting     as Chain   (EpochSlots(..))
-import qualified Data.ByteString.Lazy.Char8 as LBS     (unpack)
-import qualified Data.Map.Strict            as M       (keys)
-import qualified Mantis.Command.Fingerprint as Fingerprint
+import qualified Cardano.Chain.Slotting     as Chain (EpochSlots(..))
+import qualified Data.ByteString.Lazy.Char8 as LBS   (unpack)
+import qualified Data.Map.Strict            as M     (keys)
 import qualified Options.Applicative        as O
 
 
+command :: O.Mod O.CommandFields Mantis
 command =
   O.command "transact"
     $ O.info options (O.progDesc "Mint a token.")
 
 
+options :: O.Parser Mantis
 options =
   Transact
     <$>             O.strArgument   ( O.metavar "CONFIG"    <> O.help "Path to configuration file."                                       )
@@ -53,6 +52,7 @@ main :: FilePath
 main configFile tokenName tokenCount tokenSlot metadataFile =
   do
     Configuration{..} <- read <$> readFile configFile
+
     let
       protocol = CardanoProtocol $ Chain.EpochSlots epochSlots
       network = maybe Mainnet (Testnet . NetworkMagic) magic

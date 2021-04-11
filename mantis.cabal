@@ -14,6 +14,7 @@ executable mantis
   other-modules   : Mantis.Asset
                     Mantis.Command
                     Mantis.Command.Fingerprint
+                    Mantis.Command.Script
                     Mantis.Command.Transact
                     Mantis.Command.Types
                     Mantis.Query
