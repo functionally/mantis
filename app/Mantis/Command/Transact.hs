@@ -12,12 +12,12 @@ import Cardano.Api (NetworkId(..), getTxId)
 import Cardano.Api.Protocol (Protocol(..))
 import Cardano.Api.Eras (CardanoEra(MaryEra))
 import Cardano.Api.Shelley (ShelleyWitnessSigningKey(..), TxOut(..), fromMaryValue, TxOutValue(..), makeScriptWitness, makeSignedTransaction, makeShelleyKeyWitness)
-import Cardano.Api.Typed (NetworkMagic(..), SlotNo(..), anyAddressInEra, makeTransactionBody)
+import Cardano.Api.Typed (NetworkMagic(..), anyAddressInEra, makeTransactionBody)
 import Control.Monad.Except (runExceptT)
 import Data.Aeson (encode)
 import Data.Maybe (fromMaybe, maybeToList)
-import Mantis.Command.Types (Configuration(..), Mantis(..))
-import Mantis.Query (queryProtocol, queryTip, queryUTxO, submitTransaction)
+import Mantis.Command.Types (Configuration(..), Mantis(..), SlotRef)
+import Mantis.Query (adjustSlot, queryProtocol, queryTip, queryUTxO, submitTransaction)
 import Mantis.Transaction (fromShelleyUTxO, includeFee, makeMinting, makeTransaction, printUTxO, printValue, readMetadata, summarizeValues, supportedMultiAsset)
 import Mantis.Wallet (makeVerificationKeyHash, readAddress, readSigningKey, readVerificationKey)
 
@@ -36,17 +36,17 @@ command =
 options :: O.Parser Mantis
 options =
   Transact
-    <$>             O.strArgument   ( O.metavar "CONFIG"    <> O.help "Path to configuration file."                                       )
-    <*> O.optional (O.strArgument   $ O.metavar "TOKEN"     <> O.help "Name of token to mint or burn."                                    )
-    <*> O.optional (O.option O.auto $ O.long    "count"     <> O.help "Number of tokens to mint or burn."                                 )
-    <*> O.optional (O.option O.auto $ O.long    "before"    <> O.help "Number of slots into the future when tokens are mintable/burnable.")
-    <*> O.optional (O.strOption     $ O.long    "metadata"  <> O.help "Path to metadata JSON file."                                       )
+    <$>             O.strArgument   (                      O.metavar "CONFIG_FILE"   <> O.help "Path to configuration file."                                                               )
+    <*> O.optional (O.strArgument   $                      O.metavar "TOKEN"         <> O.help "Name of token to mint or burn."                                                            )
+    <*> O.optional (O.option O.auto $ O.long "count"    <> O.metavar "INTEGER"       <> O.help "Number of tokens to mint or burn."                                                         )
+    <*> O.optional (O.option O.auto $ O.long "expires"  <> O.metavar "SLOT"          <> O.help "Slot number after which tokens are not mintable / burnable; prefix `+` if relative to tip.")
+    <*> O.optional (O.strOption     $ O.long "metadata" <> O.metavar "METADATA_FILE" <> O.help "Path to metadata JSON file."                                                               )
 
 
 main :: FilePath
      -> Maybe String
      -> Maybe Integer
-     -> Maybe Int
+     -> Maybe SlotRef
      -> Maybe FilePath
      -> IO ()
 main configFile tokenName tokenCount tokenSlot metadataFile =
@@ -59,12 +59,11 @@ main configFile tokenName tokenCount tokenSlot metadataFile =
     putStrLn ""
     putStrLn $ "Network: " ++ show network
 
-    Right (SlotNo tip) <- runExceptT $ queryTip protocol network
+    Right tip <- runExceptT $ queryTip protocol network
     putStrLn ""
-    putStrLn $ "Tip slot: " ++ show tip
+    putStrLn $ "Tip: " ++ show tip
     let
-      adjust x = if x > 0 then x else tip + x
-      before = SlotNo . adjust . toEnum <$> tokenSlot
+      before = (`adjustSlot` tip) <$> tokenSlot
 
     Right pparams <- runExceptT $ queryProtocol protocol network
     putStrLn ""

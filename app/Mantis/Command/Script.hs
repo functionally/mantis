@@ -8,14 +8,13 @@ module Mantis.Command.Script (
 ) where
 
 
-
 import Cardano.Api (NetworkId(..))
 import Cardano.Api.Protocol (Protocol(..))
-import Cardano.Api.Typed (NetworkMagic(..), SlotNo(..))
+import Cardano.Api.Typed (NetworkMagic(..))
 import Control.Monad.Except (runExceptT)
 import Data.Aeson.Encode.Pretty (encodePretty)
-import Mantis.Command.Types (Configuration(..), Mantis(..))
-import Mantis.Query (queryTip)
+import Mantis.Command.Types (Configuration(..), Mantis(..), SlotRef)
+import Mantis.Query (adjustSlot, queryTip)
 import Mantis.Script (mintingScript)
 import Mantis.Wallet (makeVerificationKeyHash, readVerificationKey)
 
@@ -33,13 +32,13 @@ command =
 options :: O.Parser Mantis
 options =
   Script
-    <$>             O.strArgument   ( O.metavar "CONFIG"      <> O.help "Path to configuration file."                                       )
-    <*> O.optional (O.strArgument   $ O.metavar "SCRIPT_FILE" <> O.help "Path to script JSON file."                                         )
-    <*> O.optional (O.option O.auto $ O.long    "before"      <> O.help "Number of slots into the future when tokens are mintable/burnable.")
+    <$>             O.strArgument   (                      O.metavar "CONFIG_FILE" <> O.help "Path to configuration file."                                                               )
+    <*> O.optional (O.strArgument   $                      O.metavar "SCRIPT_FILE" <> O.help "Path to script JSON file."                                                                 )
+    <*> O.optional (O.option O.auto $ O.long  "expires" <> O.metavar "SLOT"        <> O.help "Slot number after which tokens are not mintable / burnable; prefix `+` if relative to tip.")
 
 
 main :: FilePath
-     -> Maybe Int
+     -> Maybe SlotRef
      -> Maybe FilePath
      -> IO ()
 main configFile tokenSlot scriptFile =
@@ -52,12 +51,11 @@ main configFile tokenSlot scriptFile =
     putStrLn ""
     putStrLn $ "Network: " ++ show network
 
-    Right (SlotNo tip) <- runExceptT $ queryTip protocol network
+    Right tip <- runExceptT $ queryTip protocol network
     putStrLn ""
-    putStrLn $ "Tip slot: " ++ show tip
+    putStrLn $ "Tip: " ++ show tip
     let
-      adjust x = if x > 0 then x else tip + x
-      before = SlotNo . adjust . toEnum <$> tokenSlot
+      before = (`adjustSlot` tip) <$> tokenSlot
 
     verificationKey <- readVerificationKey verificationKeyFile
     let
