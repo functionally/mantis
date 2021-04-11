@@ -17,38 +17,20 @@ import Control.Monad.Except (runExceptT)
 import Data.Aeson (encode)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.Version (showVersion)
-import Data.Word (Word32, Word64)
+import Mantis.Command.Types (Configuration(..), Mantis(..))
 import Mantis.Query (queryProtocol, queryTip, queryUTxO, submitTransaction)
 import Mantis.Transaction (fromShelleyUTxO, includeFee, makeMinting, makeTransaction, printUTxO, printValue, readMetadata, summarizeValues, supportedMultiAsset)
 import Mantis.Wallet (makeVerificationKeyHash, readAddress, readSigningKey, readVerificationKey)
-import Paths_mantis (version)
+--import Paths_mantis (version)
 
 import qualified Cardano.Chain.Slotting     as Chain   (EpochSlots(..))
 import qualified Data.ByteString.Lazy.Char8 as LBS     (unpack)
 import qualified Data.Map.Strict            as M       (keys)
+import qualified Mantis.Command.Fingerprint as Fingerprint
 import qualified Options.Applicative        as O
 
 
-data Configuration =
-  Configuration
-  {
-    magic               :: Maybe Word32
-  , epochSlots          :: Word64
-  , addressString       :: String
-  , verificationKeyFile :: FilePath
-  , signingKeyFile      :: FilePath
-  }
-    deriving (Read, Show)
-
-
-data Mantis = Mantis
-  {
-    configFile   :: FilePath
-  , tokenName    :: Maybe String
-  , tokenCount   :: Maybe Integer
-  , tokenSlot    :: Maybe Int
-  , metadataFile :: Maybe FilePath
-  }
+version = undefined
 
 
 main :: IO ()
@@ -57,18 +39,29 @@ main =
     let
       parser =
         O.info
-          (O.helper <*> versionOption <*> programOptions)
+          (O.helper <*> versionOption <*> O.hsubparser (mantisCommand <> Fingerprint.command))
           (O.fullDesc <> O.progDesc "Submit Cardano metadata or mint Cardano tokens." <> O.header "Mantis Cardano tool.")
       versionOption = O.infoOption ("Mantis " ++ showVersion version) (O.long "version" <> O.help "Show version.")
-      programOptions =
+      mantisCommand =
+        O.command "mint"
+          $ O.info mantisOptions (O.progDesc "Mint a token.")
+      mantisOptions =
         Mantis
           <$>             O.strArgument   ( O.metavar "CONFIG"    <> O.help "Path to configuration file."                                       )
           <*> O.optional (O.strArgument   $ O.metavar "TOKEN"     <> O.help "Name of token to mint or burn."                                    )
           <*> O.optional (O.option O.auto $ O.long    "count"     <> O.help "Number of tokens to mint or burn."                                 )
           <*> O.optional (O.option O.auto $ O.long    "before"    <> O.help "Number of slots into the future when tokens are mintable/burnable.")
           <*> O.optional (O.strOption     $ O.long    "metadata"  <> O.help "Path to metadata JSON file."                                       )
-    Mantis{..} <- O.execParser parser
+    command <- O.execParser parser
+    case command of
+      Mantis{}        -> mantis command
+      Fingerprint{..} -> Fingerprint.main policyId assetName 
+                         
 
+
+mantis :: Mantis -> IO ()
+mantis Mantis{..} =
+  do
     Configuration{..} <- read <$> readFile configFile
     let
       protocol = CardanoProtocol $ Chain.EpochSlots epochSlots
@@ -79,6 +72,9 @@ main =
     Right (SlotNo tip) <- runExceptT $ queryTip protocol network
     putStrLn ""
     putStrLn $ "Tip slot: " ++ show tip
+    let
+      adjust x = if x > 0 then x else tip + x
+      before = SlotNo . adjust . toEnum <$> tokenSlot
 
     Right pparams <- runExceptT $ queryProtocol protocol network
     putStrLn ""
@@ -122,7 +118,7 @@ main =
                                                           name
                                                           (fromMaybe 1 tokenCount)
                                                           verificationKeyHash
-                                                          $ SlotNo . (tip +) . toEnum <$> tokenSlot
+                                                          before
                        in
                          (Just script', Just minting', value'')
     putStrLn ""
@@ -136,6 +132,7 @@ main =
         $ makeTransaction 
           (M.keys $ fromShelleyUTxO utxo)
           [TxOut address' (TxOutValue supportedMultiAsset value')]
+          before
           metadata
           Nothing
           minting
