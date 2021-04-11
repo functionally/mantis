@@ -19,7 +19,7 @@ module Mantis.Transaction (
 
 import Cardano.Api.Shelley (TxBodyContent(..), TxId(..), TxIn(..), TxOut(..), TxOutValue(..), fromMaryValue, fromShelleyAddr)
 import Cardano.Api.Eras (CardanoEra(..), MaryEra, ShelleyLedgerEra)
-import Cardano.Api.Typed (AssetId(..), AssetName(..), AuxScriptsSupportedInEra(..), MultiAssetSupportedInEra(..), Hash, NetworkId, PaymentKey, PolicyId(..), Quantity(..), ScriptInEra, SlotNo(..), TxAuxScripts(..), TxCertificates(..), TxFee(..), TxFeesExplicitInEra(..), TxMetadata, TxMetadataInEra(..), TxMetadataSupportedInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), ValidityNoUpperBoundSupportedInEra(..), Value, auxScriptsSupportedInEra, estimateTransactionFee, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, txFeesExplicitInEra, validityNoUpperBoundSupportedInEra, valueFromList)
+import Cardano.Api.Typed (AssetId(..), AssetName(..), AuxScriptsSupportedInEra(..), MultiAssetSupportedInEra(..), Hash, NetworkId, PaymentKey, PolicyId(..), Quantity(..), ScriptInEra, SlotNo(..), TxAuxScripts(..), TxCertificates(..), TxFee(..), TxFeesExplicitInEra(..), TxMetadata, TxMetadataInEra(..), TxMetadataSupportedInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), ValidityNoUpperBoundSupportedInEra(..), ValidityUpperBoundSupportedInEra(..), Value, auxScriptsSupportedInEra, estimateTransactionFee, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, txFeesExplicitInEra, validityNoUpperBoundSupportedInEra, validityUpperBoundSupportedInEra, valueFromList)
 import Data.Aeson (decodeFileStrict)
 import Mantis.Script (mintingScript)
 
@@ -34,8 +34,12 @@ import qualified Shelley.Spec.Ledger.UTxO             as Shelley   (UTxO(..))
 import qualified Ouroboros.Consensus.Shelley.Protocol as Ouroboros (StandardCrypto)
 
 
-supportedUpperBound :: ValidityNoUpperBoundSupportedInEra MaryEra
-Just supportedUpperBound = validityNoUpperBoundSupportedInEra MaryEra
+supportedNoUpperBound :: ValidityNoUpperBoundSupportedInEra MaryEra
+Just supportedNoUpperBound = validityNoUpperBoundSupportedInEra MaryEra
+
+
+supportedUpperBound :: ValidityUpperBoundSupportedInEra MaryEra
+Just supportedUpperBound = validityUpperBoundSupportedInEra MaryEra
 
 
 supportedMultiAsset :: MultiAssetSupportedInEra MaryEra
@@ -52,14 +56,21 @@ Right explicitFees = txFeesExplicitInEra MaryEra
 
 makeTransaction :: [TxIn]
                 -> [TxOut MaryEra]
+                -> Maybe SlotNo
                 -> Maybe TxMetadata
                 -> Maybe (ScriptInEra MaryEra)
                 -> Maybe Value
                 -> TxBodyContent MaryEra
-makeTransaction txIns txOuts metadata script minting =
+makeTransaction txIns txOuts before metadata script minting =
   let
     txFee            = TxFeeExplicit explicitFees 0
-    txValidityRange  = (TxValidityNoLowerBound, TxValidityNoUpperBound supportedUpperBound)
+    txValidityRange  = (
+                         TxValidityNoLowerBound
+                       , maybe
+                           (TxValidityNoUpperBound supportedNoUpperBound)
+                           (TxValidityUpperBound supportedUpperBound)
+                           before
+                       )
     txMetadata       = maybe TxMetadataNone (TxMetadataInEra TxMetadataInMaryEra) metadata
     txAuxScripts     = maybe TxAuxScriptsNone (TxAuxScripts supportedScripts . pure) script
     txWithdrawals    = TxWithdrawalsNone

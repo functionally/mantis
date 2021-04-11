@@ -7,6 +7,7 @@ module Mantis.Query (
 , queryTip
 , queryUTxO
 , submitTransaction
+, adjustSlot
 ) where
 
 
@@ -15,10 +16,11 @@ import Cardano.Api.LocalChainSync (getLocalTip)
 import Cardano.Api.Protocol (Protocol, withlocalNodeConnectInfo)
 import Cardano.Api.Shelley (anyAddressInShelleyBasedEra, toShelleyAddr)
 import Cardano.Api.TxSubmit (TxForMode(..), TxSubmitResultForMode, submitTx)
-import Cardano.Api.Typed (AddressAny, AddressInEra(..), CardanoMode, LocalNodeConnectInfo(..), NetworkId, NodeConsensusMode(..), SlotNo, Tx, queryNodeLocalState)
+import Cardano.Api.Typed (AddressAny, AddressInEra(..), CardanoMode, LocalNodeConnectInfo(..), NetworkId, NodeConsensusMode(..), SlotNo(..), Tx, queryNodeLocalState)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Trans.Except.Extra (firstExceptT, newExceptT)
+import Mantis.Command.Types (SlotRef(..))
 
 import qualified Cardano.CLI.Environment            as CLI       (readEnvSocketPath)
 import qualified Cardano.CLI.Types                  as CLI       (SocketPath(..))
@@ -43,6 +45,13 @@ queryTip protocol network =
         do
           Ouroboros.At slotNo <- Ouroboros.getTipSlotNo <$> getLocalTip connectInfo
           return slotNo
+
+
+adjustSlot :: SlotRef
+           -> SlotNo
+           -> SlotNo
+adjustSlot (AbsoluteSlot slot ) _             = SlotNo $ fromIntegral slot
+adjustSlot (RelativeSlot delta) (SlotNo slot) = SlotNo $ slot + fromIntegral delta
 
 
 queryProtocol
