@@ -26,7 +26,7 @@ import qualified Options.Applicative    as O
 command :: O.Mod O.CommandFields Mantis
 command =
   O.command "script"
-    $ O.info options (O.progDesc "Construct a minting script and compute its hash.")
+    $ O.info options (O.progDesc "Construct a minting script and compute its Policy ID.")
 
 
 options :: O.Parser Mantis

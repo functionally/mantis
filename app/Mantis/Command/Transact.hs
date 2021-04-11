@@ -30,7 +30,7 @@ import qualified Options.Applicative        as O
 command :: O.Mod O.CommandFields Mantis
 command =
   O.command "transact"
-    $ O.info options (O.progDesc "Mint a token.")
+    $ O.info options (O.progDesc "Submit Cardano metadata or mint Cardano tokens.")
 
 
 options :: O.Parser Mantis
