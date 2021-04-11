@@ -11,7 +11,12 @@ build-type  : Simple
 
 executable mantis
   main-is         : Main.hs
-  other-modules   : Mantis.Query
+  other-modules   : Mantis.Asset
+                    Mantis.Command
+                    Mantis.Command.Fingerprint
+                    Mantis.Command.Transact
+                    Mantis.Command.Types
+                    Mantis.Query
                     Mantis.Script
                     Mantis.Transaction
                     Mantis.Wallet
@@ -19,6 +24,8 @@ executable mantis
   build-depends   : base >= 4.14 && < 4.15
                   , aeson
                   , aeson-pretty
+                  , base16-bytestring
+                  , bech32
                   , bytestring
                   , cardano-api
                   , cardano-cli
@@ -26,6 +33,8 @@ executable mantis
                   , cardano-ledger-shelley-ma
                   , cardano-node
                   , containers
+                  , cryptonite
+                  , memory
                   , mtl
                   , optparse-applicative
                   , ouroboros-consensus-cardano

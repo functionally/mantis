@@ -21,7 +21,7 @@ data Configuration =
 
 
 data Mantis =
-    Mantis
+    Transact
     {
       configFile   :: FilePath
     , tokenName    :: Maybe String
