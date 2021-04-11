@@ -21,9 +21,20 @@ main version =
     let
       parser =
         O.info
-          (O.helper <*> versionOption <*> O.hsubparser (Transact.command <> Fingerprint.command))
-          (O.fullDesc <> O.progDesc "Submit Cardano metadata or mint Cardano tokens." <> O.header "Mantis Cardano tool.")
-      versionOption = O.infoOption ("Mantis " ++ showVersion version) (O.long "version" <> O.help "Show version.")
+          (
+                O.helper
+            <*> versionOption
+            <*> O.hsubparser (Transact.command <> Fingerprint.command)
+          )
+          (
+               O.fullDesc
+            <> O.progDesc "Utilities for Cardano scripts."
+            <> O.header "Mantis Cardano tool."
+          )
+      versionOption =
+        O.infoOption
+          ("Mantis " ++ showVersion version)
+          (O.long "version" <> O.help "Show version.")
     command <- O.execParser parser
     case command of
       Transact{..}    -> Transact.main configFile tokenName tokenCount tokenSlot metadataFile
