@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 
 
-module Mantis.Command.Transact (
+module Mantis.Command.Mint (
   command
 , main
 ) where
@@ -12,15 +12,15 @@ import Cardano.Api (NetworkId(..), getTxId)
 import Cardano.Api.Protocol (Protocol(..))
 import Cardano.Api.Eras (CardanoEra(MaryEra))
 import Cardano.Api.Shelley (ShelleyWitnessSigningKey(..), TxOut(..), fromMaryValue, TxOutValue(..), makeScriptWitness, makeSignedTransaction, makeShelleyKeyWitness)
-import Cardano.Api.Typed (NetworkMagic(..), anyAddressInEra, makeTransactionBody)
+import Cardano.Api.Typed (NetworkMagic(..), PolicyId(..), anyAddressInEra, makeTransactionBody)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Extra (whenJust)
 import Data.Aeson (encode)
 import Data.Aeson.Encode.Pretty (encodePretty)
-import Data.Maybe (fromMaybe, maybeToList)
 import Mantis.Command.Types (Configuration(..), Mantis(..), SlotRef)
 import Mantis.Query (adjustSlot, queryProtocol, queryTip, queryUTxO, submitTransaction)
-import Mantis.Transaction (fromShelleyUTxO, includeFee, makeMinting, makeTransaction, printUTxO, printValue, readMetadata, summarizeValues, supportedMultiAsset)
+import Mantis.Script (mintingScript)
+import Mantis.Transaction (fromShelleyUTxO, includeFee, makeTransaction, printUTxO, printValue, readMinting, summarizeValues, supportedMultiAsset)
 import Mantis.Wallet (makeVerificationKeyHash, readAddress, readSigningKey, readVerificationKey)
 
 import qualified Cardano.Chain.Slotting     as Chain (EpochSlots(..))
@@ -31,29 +31,27 @@ import qualified Options.Applicative        as O
 
 command :: O.Mod O.CommandFields Mantis
 command =
-  O.command "transact"
-    $ O.info options (O.progDesc "Submit Cardano metadata or mint Cardano tokens.")
+  O.command "mint"
+    $ O.info options (O.progDesc "Mint batches of Cardano non-fungible tokens.")
 
 
 options :: O.Parser Mantis
 options =
-  Transact
+  Mint
     <$>             O.strArgument   (                      O.metavar "CONFIG_FILE"   <> O.help "Path to configuration file."                                                               )
-    <*> O.optional (O.strArgument   $                      O.metavar "TOKEN"         <> O.help "Name of token to mint or burn."                                                            )
-    <*> O.optional (O.option O.auto $ O.long "count"    <> O.metavar "INTEGER"       <> O.help "Number of tokens to mint or burn."                                                         )
+    <*>             O.strArgument   (                      O.metavar "MINTING_FILE"  <> O.help "Path to minting JSON file."                                                                )
     <*> O.optional (O.option O.auto $ O.long "expires"  <> O.metavar "SLOT"          <> O.help "Slot number after which tokens are not mintable / burnable; prefix `+` if relative to tip.")
     <*> O.optional (O.strOption     $ O.long "script"   <> O.metavar "SCRIPT_FILE"   <> O.help "Path to output script JSON file."                                                          )
-    <*> O.optional (O.strOption     $ O.long "metadata" <> O.metavar "METADATA_FILE" <> O.help "Path to metadata JSON file."                                                               )
+    <*> O.optional (O.strOption     $ O.long "metadata" <> O.metavar "METADATA_FILE" <> O.help "Path to output metadata JSON file."                                                        )
 
 
 main :: FilePath
-     -> Maybe String
-     -> Maybe Integer
+     -> FilePath
      -> Maybe SlotRef
      -> Maybe FilePath
      -> Maybe FilePath
      -> IO ()
-main configFile tokenName tokenCount tokenSlot scriptFile metadataFile =
+main configFile mintingFile tokenSlot scriptFile metadataFile =
   do
     Configuration{..} <- read <$> readFile configFile
 
@@ -97,30 +95,23 @@ main configFile tokenName tokenCount tokenSlot scriptFile metadataFile =
     putStrLn "Total value:"
     printValue "  " value
 
-    metadata <- sequence $ readMetadata <$> metadataFile
+    let
+      (script, scriptHash) = mintingScript verificationKeyHash before
+    putStrLn ""
+    putStrLn $ "Policy ID: " ++ show scriptHash
+    putStrLn $ "Policy: " ++ show script
+    whenJust scriptFile
+      (`LBS.writeFile` encodePretty script)
+
+    (json, metadata, minting) <- readMinting (PolicyId scriptHash) mintingFile
+    let
+      value' = fromMaryValue value <> minting
     putStrLn ""
     putStrLn "Metadata . . . read and parsed."
-
-    let
-      (script, minting, value') =
-        case tokenName of
-          Nothing   -> (Nothing, Nothing, fromMaryValue value)
-          Just name -> let
-                         (script', minting', value'') = makeMinting
-                                                          value
-                                                          name
-                                                          (fromMaybe 1 tokenCount)
-                                                          verificationKeyHash
-                                                          before
-                       in
-                         (Just script', Just minting', value'')
-    putStrLn ""
-    putStrLn $ "Policy: " ++ show script
+    whenJust metadataFile
+      (`LBS.writeFile` encodePretty json)
     putStrLn ""
     putStrLn $ "Minting: " ++ show minting
-
-    whenJust scriptFile
-     (`LBS.writeFile` encodePretty script)
 
     let
       Just address' = anyAddressInEra MaryEra address
@@ -129,9 +120,9 @@ main configFile tokenName tokenCount tokenSlot scriptFile metadataFile =
           (M.keys $ fromShelleyUTxO utxo)
           [TxOut address' (TxOutValue supportedMultiAsset value')]
           before
-          metadata
+          (Just metadata)
           Nothing
-          minting
+          (Just minting)
       Right txRaw = makeTransactionBody txBody
     putStrLn ""
     putStrLn $ "Transaction: " ++ show txRaw
@@ -139,11 +130,10 @@ main configFile tokenName tokenCount tokenSlot scriptFile metadataFile =
     let
       witness = makeShelleyKeyWitness txRaw
         $ WitnessPaymentExtendedKey signingKey
-      witness' = makeScriptWitness <$> script
-      txSigned = makeSignedTransaction (witness : maybeToList witness') txRaw
+      witness' = makeScriptWitness script
+      txSigned = makeSignedTransaction [witness, witness'] txRaw
     print witness
     result <- runExceptT $ submitTransaction protocol network txSigned
     putStrLn ""
     putStrLn $ "Result: " ++ show result
     putStrLn $ "TxID: " ++ show (getTxId txRaw)
-

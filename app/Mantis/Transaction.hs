@@ -1,7 +1,8 @@
 
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GADTs            #-}
-{-# LANGUAGE RecordWildCards  #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE GADTs             #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 
 
 module Mantis.Transaction (
@@ -14,18 +15,21 @@ module Mantis.Transaction (
 , printValue
 , summarizeValues
 , makeMinting
+, readMinting
 ) where
 
 
 import Cardano.Api.Shelley (TxBodyContent(..), TxId(..), TxIn(..), TxOut(..), TxOutValue(..), fromMaryValue, fromShelleyAddr)
 import Cardano.Api.Eras (CardanoEra(..), MaryEra, ShelleyLedgerEra)
-import Cardano.Api.Typed (AssetId(..), AssetName(..), AuxScriptsSupportedInEra(..), MultiAssetSupportedInEra(..), Hash, NetworkId, PaymentKey, PolicyId(..), Quantity(..), ScriptInEra, SlotNo(..), TxAuxScripts(..), TxCertificates(..), TxFee(..), TxFeesExplicitInEra(..), TxMetadata, TxMetadataInEra(..), TxMetadataSupportedInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), ValidityNoUpperBoundSupportedInEra(..), ValidityUpperBoundSupportedInEra(..), Value, auxScriptsSupportedInEra, estimateTransactionFee, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, txFeesExplicitInEra, validityNoUpperBoundSupportedInEra, validityUpperBoundSupportedInEra, valueFromList)
-import Data.Aeson (decodeFileStrict)
+import Cardano.Api.Typed (AssetId(..), AssetName(..), AuxScriptsSupportedInEra(..), MultiAssetSupportedInEra(..), Hash, NetworkId, PaymentKey, PolicyId(..), Quantity(..), ScriptInEra, SlotNo(..), TxAuxScripts(..), TxCertificates(..), TxFee(..), TxFeesExplicitInEra(..), TxMetadata, TxMetadataInEra(..), TxMetadataSupportedInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), ValidityNoUpperBoundSupportedInEra(..), ValidityUpperBoundSupportedInEra(..), Value, auxScriptsSupportedInEra, estimateTransactionFee, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, serialiseToRawBytesHex, txFeesExplicitInEra, validityNoUpperBoundSupportedInEra, validityUpperBoundSupportedInEra, valueFromList)
 import Mantis.Script (mintingScript)
 
 import qualified Cardano.Ledger.Mary.Value            as Mary      (AssetName(..), PolicyID(..), Value(..))
-import qualified Data.ByteString.Char8                as BS        (pack)
+import qualified Data.Aeson                           as A         (Object(..), Value(..), decodeFileStrict)
+import qualified Data.ByteString.Char8                as BS        (pack, unpack)
+import qualified Data.HashMap.Strict                  as H         (keys, singleton)
 import qualified Data.Map.Strict                      as M         (Map, assocs, fromList)
+import qualified Data.Text                            as T         (pack, unpack)
 import qualified Ouroboros.Consensus.Shelley.Eras     as Ouroboros (StandardMary)
 import qualified Shelley.Spec.Ledger.PParams          as Shelley   (PParams)
 import qualified Shelley.Spec.Ledger.API              as Shelley   (PParams'(..), ScriptHash(..))
@@ -125,7 +129,7 @@ fromShelleyUTxO (Shelley.UTxO utxoMap) =
 readMetadata :: FilePath -> IO TxMetadata
 readMetadata filename =
   do
-    Just json <- decodeFileStrict filename
+    Just json <- A.decodeFileStrict filename
     let
       Right metadata = metadataFromJson TxMetadataJsonNoSchema json
     return metadata
@@ -194,3 +198,30 @@ makeMinting value name count verification before =
     , minting
     , fromMaryValue value <> minting
     )
+
+
+readMinting :: PolicyId -> FilePath -> IO (A.Value, TxMetadata, Value)
+readMinting policyId filename =
+  do
+    Just (A.Object json) <- A.decodeFileStrict filename
+    let
+      minting =
+        valueFromList
+          [
+            (
+              AssetId policyId . AssetName . BS.pack $ T.unpack name
+            , Quantity 1
+            )
+          |
+            name <- H.keys json
+          ]
+      json' =
+          A.Object
+          . H.singleton "721"
+          . A.Object
+          $ H.singleton
+            (T.pack . BS.unpack $ serialiseToRawBytesHex policyId)
+            (A.Object json)
+      Right metadata = metadataFromJson TxMetadataJsonNoSchema json'
+    return (json', metadata, minting)
+
