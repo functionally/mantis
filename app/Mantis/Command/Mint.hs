@@ -17,6 +17,7 @@ import Control.Monad.Except (runExceptT)
 import Control.Monad.Extra (whenJust)
 import Data.Aeson (encode)
 import Data.Aeson.Encode.Pretty (encodePretty)
+import Data.Maybe (fromMaybe)
 import Mantis.Command.Types (Configuration(..), Mantis(..), SlotRef)
 import Mantis.Query (adjustSlot, queryProtocol, queryTip, queryUTxO, submitTransaction)
 import Mantis.Script (mintingScript)
@@ -41,6 +42,7 @@ options =
     <$>             O.strArgument   (                      O.metavar "CONFIG_FILE"   <> O.help "Path to configuration file."                                                               )
     <*>             O.strArgument   (                      O.metavar "MINTING_FILE"  <> O.help "Path to minting JSON file."                                                                )
     <*> O.optional (O.option O.auto $ O.long "expires"  <> O.metavar "SLOT"          <> O.help "Slot number after which tokens are not mintable / burnable; prefix `+` if relative to tip.")
+    <*> O.optional (O.strOption     $ O.long "output"   <> O.metavar "ADDRESS"       <> O.help "Address for output of transaction."                                                        )
     <*> O.optional (O.strOption     $ O.long "script"   <> O.metavar "SCRIPT_FILE"   <> O.help "Path to output script JSON file."                                                          )
     <*> O.optional (O.strOption     $ O.long "metadata" <> O.metavar "METADATA_FILE" <> O.help "Path to output metadata JSON file."                                                        )
 
@@ -48,10 +50,11 @@ options =
 main :: FilePath
      -> FilePath
      -> Maybe SlotRef
+     -> Maybe String
      -> Maybe FilePath
      -> Maybe FilePath
      -> IO ()
-main configFile mintingFile tokenSlot scriptFile metadataFile =
+main configFile mintingFile tokenSlot outputAddress scriptFile metadataFile =
   do
     Configuration{..} <- read <$> readFile configFile
 
@@ -73,8 +76,10 @@ main configFile mintingFile tokenSlot scriptFile metadataFile =
 
     let
       Just address = readAddress addressString
+      Just address' = readAddress $ fromMaybe addressString outputAddress
     putStrLn ""
-    putStrLn $ "Address: " ++ addressString
+    putStrLn $ "Input Address: " ++ addressString
+    putStrLn $ "Output Address: " ++ fromMaybe addressString outputAddress
 
     verificationKey <- readVerificationKey verificationKeyFile
     let
@@ -114,11 +119,11 @@ main configFile mintingFile tokenSlot scriptFile metadataFile =
     putStrLn $ "Minting: " ++ show minting
 
     let
-      Just address' = anyAddressInEra MaryEra address
+      Just address'' = anyAddressInEra MaryEra address'
       txBody = includeFee network pparams nIn 1 1 0
         $ makeTransaction 
           (M.keys $ fromShelleyUTxO utxo)
-          [TxOut address' (TxOutValue supportedMultiAsset value')]
+          [TxOut address'' (TxOutValue supportedMultiAsset value')]
           before
           (Just metadata)
           Nothing

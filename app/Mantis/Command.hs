@@ -45,8 +45,8 @@ main version =
           (O.long "version" <> O.help "Show version.")
     command <- O.execParser parser
     case command of
-      Transact{..}    -> Transact.main configFile tokenName tokenCount tokenSlot scriptFile metadataFile
-      Mint{..}        -> Mint.main configFile mintingFile tokenSlot scriptFile metadataFile
+      Transact{..}    -> Transact.main configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
+      Mint{..}        -> Mint.main configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
       Script{..}      -> Script.main configFile tokenSlot scriptFile
       Fingerprint{..} -> Fingerprint.main policyId assetName 
 

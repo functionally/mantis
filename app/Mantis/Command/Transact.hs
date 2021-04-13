@@ -42,6 +42,7 @@ options =
     <*> O.optional (O.strArgument   $                      O.metavar "TOKEN"         <> O.help "Name of token to mint or burn."                                                            )
     <*> O.optional (O.option O.auto $ O.long "count"    <> O.metavar "INTEGER"       <> O.help "Number of tokens to mint or burn."                                                         )
     <*> O.optional (O.option O.auto $ O.long "expires"  <> O.metavar "SLOT"          <> O.help "Slot number after which tokens are not mintable / burnable; prefix `+` if relative to tip.")
+    <*> O.optional (O.strOption     $ O.long "output"   <> O.metavar "ADDRESS"       <> O.help "Address for output of transaction."                                                        )
     <*> O.optional (O.strOption     $ O.long "script"   <> O.metavar "SCRIPT_FILE"   <> O.help "Path to output script JSON file."                                                          )
     <*> O.optional (O.strOption     $ O.long "metadata" <> O.metavar "METADATA_FILE" <> O.help "Path to metadata JSON file."                                                               )
 
@@ -50,10 +51,11 @@ main :: FilePath
      -> Maybe String
      -> Maybe Integer
      -> Maybe SlotRef
+     -> Maybe String
      -> Maybe FilePath
      -> Maybe FilePath
      -> IO ()
-main configFile tokenName tokenCount tokenSlot scriptFile metadataFile =
+main configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile =
   do
     Configuration{..} <- read <$> readFile configFile
 
@@ -75,8 +77,11 @@ main configFile tokenName tokenCount tokenSlot scriptFile metadataFile =
 
     let
       Just address = readAddress addressString
+      Just address' = readAddress $ fromMaybe addressString outputAddress
     putStrLn ""
-    putStrLn $ "Address: " ++ addressString
+    putStrLn $ "Input Address: " ++ addressString
+    putStrLn $ "Output Address: " ++ fromMaybe addressString outputAddress
+
 
     verificationKey <- readVerificationKey verificationKeyFile
     let
@@ -123,11 +128,11 @@ main configFile tokenName tokenCount tokenSlot scriptFile metadataFile =
      (`LBS.writeFile` encodePretty script)
 
     let
-      Just address' = anyAddressInEra MaryEra address
+      Just address'' = anyAddressInEra MaryEra address'
       txBody = includeFee network pparams nIn 1 1 0
         $ makeTransaction 
           (M.keys $ fromShelleyUTxO utxo)
-          [TxOut address' (TxOutValue supportedMultiAsset value')]
+          [TxOut address'' (TxOutValue supportedMultiAsset value')]
           before
           metadata
           Nothing
