@@ -35,20 +35,32 @@ data Configuration =
 data Mantis =
     Transact
     {
-      configFile   :: FilePath
-    , tokenName    :: Maybe String
-    , tokenCount   :: Maybe Integer
-    , tokenSlot    :: Maybe SlotRef
-    , metadataFile :: Maybe FilePath
+      configFile    :: FilePath
+    , tokenName     :: Maybe String
+    , tokenCount    :: Maybe Integer
+    , tokenSlot     :: Maybe SlotRef
+    , outputAddress :: Maybe String
+    , scriptFile    :: Maybe FilePath
+    , metadataFile  :: Maybe FilePath
+    }
+  | Mint
+    {
+      configFile    :: FilePath
+    , mintingFile   :: FilePath
+    , tokenSlot     :: Maybe SlotRef
+    , outputAddress :: Maybe String
+    , scriptFile    :: Maybe FilePath
+    , metadataFile  :: Maybe FilePath
     }
   | Script
     {
       configFile :: FilePath
-    , scriptFile :: Maybe FilePath
     , tokenSlot  :: Maybe SlotRef
+    , scriptFile :: Maybe FilePath
     }
   | Fingerprint
     {
       policyId  :: String
     , assetName :: String
     }
+    deriving (Eq, Ord, Read, Show)

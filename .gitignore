@@ -9,3 +9,4 @@ cabal.sandbox.config
 *.skey
 *.vkey
 *.json
+keys/

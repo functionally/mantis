@@ -12,6 +12,7 @@ import Cardano.Api (NetworkId(..))
 import Cardano.Api.Protocol (Protocol(..))
 import Cardano.Api.Typed (NetworkMagic(..))
 import Control.Monad.Except (runExceptT)
+import Control.Monad.Extra (whenJust)
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Mantis.Command.Types (Configuration(..), Mantis(..), SlotRef)
 import Mantis.Query (adjustSlot, queryTip)
@@ -32,9 +33,9 @@ command =
 options :: O.Parser Mantis
 options =
   Script
-    <$>             O.strArgument   (                      O.metavar "CONFIG_FILE" <> O.help "Path to configuration file."                                                               )
-    <*> O.optional (O.strArgument   $                      O.metavar "SCRIPT_FILE" <> O.help "Path to script JSON file."                                                                 )
-    <*> O.optional (O.option O.auto $ O.long  "expires" <> O.metavar "SLOT"        <> O.help "Slot number after which tokens are not mintable / burnable; prefix `+` if relative to tip.")
+    <$>             O.strArgument   (                     O.metavar "CONFIG_FILE" <> O.help "Path to configuration file."                                                               )
+    <*> O.optional (O.option O.auto $ O.long "expires" <> O.metavar "SLOT"        <> O.help "Slot number after which tokens are not mintable / burnable; prefix `+` if relative to tip.")
+    <*> O.optional (O.strOption     $ O.long "script"  <> O.metavar "SCRIPT_FILE" <> O.help "Path to output script JSON file."                                                          )
 
 
 main :: FilePath
@@ -70,4 +71,5 @@ main configFile tokenSlot scriptFile =
     putStrLn ""
     putStrLn $ "Policy ID: " ++ show scriptHash
 
-    maybe (return ()) (`LBS.writeFile` encodePretty script) scriptFile
+    whenJust scriptFile
+     (`LBS.writeFile` encodePretty script)

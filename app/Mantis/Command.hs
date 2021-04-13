@@ -11,6 +11,7 @@ import Data.Version (Version, showVersion)
 import Mantis.Command.Types (Mantis(..))
 
 import qualified Mantis.Command.Fingerprint as Fingerprint
+import qualified Mantis.Command.Mint        as Mint
 import qualified Mantis.Command.Script      as Script
 import qualified Mantis.Command.Transact    as Transact
 import qualified Options.Applicative        as O
@@ -28,6 +29,7 @@ main version =
             <*> O.hsubparser
                 (
                      Fingerprint.command
+                  <> Mint.command
                   <> Script.command
                   <> Transact.command
                 )
@@ -43,7 +45,8 @@ main version =
           (O.long "version" <> O.help "Show version.")
     command <- O.execParser parser
     case command of
-      Transact{..}    -> Transact.main configFile tokenName tokenCount tokenSlot metadataFile
+      Transact{..}    -> Transact.main configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
+      Mint{..}        -> Mint.main configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
       Script{..}      -> Script.main configFile tokenSlot scriptFile
       Fingerprint{..} -> Fingerprint.main policyId assetName 
 
