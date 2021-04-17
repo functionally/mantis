@@ -22,10 +22,12 @@ module Mantis.Transaction (
 import Cardano.Api.Shelley (TxBodyContent(..), TxId(..), TxIn(..), TxOut(..), TxOutValue(..), fromMaryValue, fromShelleyAddr)
 import Cardano.Api.Eras (CardanoEra(..), MaryEra, ShelleyLedgerEra)
 import Cardano.Api.Typed (AssetId(..), AssetName(..), AuxScriptsSupportedInEra(..), MultiAssetSupportedInEra(..), Hash, NetworkId, PaymentKey, PolicyId(..), Quantity(..), ScriptInEra, SlotNo(..), TxAuxScripts(..), TxCertificates(..), TxFee(..), TxFeesExplicitInEra(..), TxMetadata, TxMetadataInEra(..), TxMetadataSupportedInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), ValidityNoUpperBoundSupportedInEra(..), ValidityUpperBoundSupportedInEra(..), Value, auxScriptsSupportedInEra, estimateTransactionFee, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, serialiseToRawBytesHex, txFeesExplicitInEra, validityNoUpperBoundSupportedInEra, validityUpperBoundSupportedInEra, valueFromList)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Mantis.Script (mintingScript)
+import Mantis.Types (MantisM, foistMantisEither, foistMantisMaybeIO)
 
 import qualified Cardano.Ledger.Mary.Value            as Mary      (AssetName(..), PolicyID(..), Value(..))
-import qualified Data.Aeson                           as A         (Object(..), Value(..), decodeFileStrict)
+import qualified Data.Aeson                           as A         (Value(..), decodeFileStrict)
 import qualified Data.ByteString.Char8                as BS        (pack, unpack)
 import qualified Data.HashMap.Strict                  as H         (keys, singleton)
 import qualified Data.Map.Strict                      as M         (Map, assocs, fromList)
@@ -85,86 +87,112 @@ makeTransaction txIns txOuts before metadata script minting =
     TxBodyContent{..}
 
 
-includeFee :: NetworkId
+includeFee :: MonadFail m
+           => MonadIO m
+           => NetworkId
            -> Shelley.PParams (ShelleyLedgerEra MaryEra)
            -> Int
            -> Int
            -> Int
            -> Int
            -> TxBodyContent MaryEra
-           -> TxBodyContent MaryEra
+           -> MantisM m (TxBodyContent MaryEra)
 includeFee network pparams nIn nOut nShelley nByron content =
-  let
-    Right tx = makeSignedTransaction [] <$> makeTransactionBody content
-    lovelace = estimateTransactionFee
-      network
-      (Shelley._minfeeB pparams)
-      (Shelley._minfeeA pparams)
-      tx
-      nIn nOut nShelley nByron
-    TxOut addr (TxOutValue s value) : _ = txOuts content
-    fee = negateValue $ lovelaceToValue lovelace
-  in
-    content
-      {
-        txFee  = TxFeeExplicit explicitFees lovelace
-      , txOuts = [TxOut addr (TxOutValue s $ value <> fee)]
-      }
+  do
+    body <- foistMantisEither $ makeTransactionBody content
+    let
+      tx = makeSignedTransaction [] body
+      lovelace = estimateTransactionFee
+        network
+        (Shelley._minfeeB pparams)
+        (Shelley._minfeeA pparams)
+        tx
+        nIn nOut nShelley nByron
+    [TxOut addr (TxOutValue s value)] <- return $ txOuts content
+    let
+      fee = negateValue $ lovelaceToValue lovelace
+    return
+      $ content
+        {
+          txFee  = TxFeeExplicit explicitFees lovelace
+        , txOuts = [TxOut addr (TxOutValue s $ value <> fee)]
+        }
 
 
 fromShelleyUTxO :: Shelley.UTxO Ouroboros.StandardMary
                 -> M.Map TxIn (TxOut MaryEra)
 fromShelleyUTxO (Shelley.UTxO utxoMap) =
-   M.fromList
-     [
-       (
-         TxIn (TxId txhash) (toEnum . fromEnum $ txin)
-       , TxOut (fromShelleyAddr addr) (TxOutValue supportedMultiAsset $ fromMaryValue value)
-       )
-     |
-       (Shelley.TxIn (Shelley.TxId txhash) txin, Shelley.TxOut addr value) <- M.assocs utxoMap
-     ] 
+  M.fromList
+    [
+      (
+        TxIn (TxId txhash) (toEnum . fromEnum $ txin)
+      , TxOut (fromShelleyAddr addr) (TxOutValue supportedMultiAsset $ fromMaryValue value)
+      )
+    |
+      (Shelley.TxIn (Shelley.TxId txhash) txin, Shelley.TxOut addr value) <- M.assocs utxoMap
+    ] 
 
 
-readMetadata :: FilePath -> IO TxMetadata
-readMetadata filename =
+readMetadata' :: MonadIO m
+              => FilePath
+              -> MantisM m (A.Value, TxMetadata)
+readMetadata' filename =
   do
-    Just json <- A.decodeFileStrict filename
-    let
-      Right metadata = metadataFromJson TxMetadataJsonNoSchema json
-    return metadata
+    json <-
+      foistMantisMaybeIO "Cound not decode metadata."
+        $ A.decodeFileStrict filename
+    metadata <-
+      foistMantisEither
+        $ metadataFromJson TxMetadataJsonNoSchema json
+    return (json, metadata)
 
 
-printUTxO :: String -> Shelley.UTxO Ouroboros.StandardMary -> IO ()
+readMetadata :: MonadIO m
+             => FilePath
+             -> MantisM m TxMetadata
+readMetadata = fmap snd . readMetadata'
+
+
+printUTxO :: MonadIO m
+          => String
+          -> Shelley.UTxO Ouroboros.StandardMary
+          -> MantisM m ()
 printUTxO indent (Shelley.UTxO utxoMap) =
   sequence_
     [
       do
-        putStrLn $ indent ++ "Transaction: " ++ show' txhash  ++ "#" ++ show txin
+        liftIO
+          . putStrLn
+          $ indent ++ "Transaction: " ++ show' txhash  ++ "#" ++ show txin
         printValue (indent ++ "  ") value'
     |
       (Shelley.TxIn (Shelley.TxId txhash) txin, Shelley.TxOut _ value') <- M.assocs utxoMap
     ]
 
 
-printValue :: String -> Mary.Value era -> IO ()
+printValue :: MonadIO m
+           => String
+           -> Mary.Value era
+           -> MantisM m ()
 printValue indent (Mary.Value lovelace policies) =
-  do
-    putStrLn $ indent ++ show lovelace ++ " Lovelace"
-    sequence_
-      [
-        putStrLn $ indent ++ show quantity ++ "  " ++ show' policy ++ "." ++ show' asset
-      |
-        (Mary.PolicyID (Shelley.ScriptHash policy), assets) <- M.assocs policies
-      , (Mary.AssetName asset, quantity) <- M.assocs assets
-      ]
+  liftIO
+    $ do
+      putStrLn $ indent ++ show lovelace ++ " Lovelace"
+      sequence_
+        [
+          putStrLn $ indent ++ show quantity ++ "  " ++ show' policy ++ "." ++ show' asset
+        |
+          (Mary.PolicyID (Shelley.ScriptHash policy), assets) <- M.assocs policies
+        , (Mary.AssetName asset, quantity) <- M.assocs assets
+        ]
 
 
 show' :: Show a => a -> String
 show' = init . tail . show
 
 
-summarizeValues :: Shelley.UTxO Ouroboros.StandardMary -> (Int, Mary.Value Ouroboros.StandardCrypto)
+summarizeValues :: Shelley.UTxO Ouroboros.StandardMary
+                -> (Int, Mary.Value Ouroboros.StandardCrypto)
 summarizeValues (Shelley.UTxO utxoMap) =
   let
     values =  
@@ -200,10 +228,14 @@ makeMinting value name count verification before =
     )
 
 
-readMinting :: PolicyId -> FilePath -> IO (A.Value, TxMetadata, Value)
+readMinting :: MonadFail m
+            => MonadIO m
+            => PolicyId
+            -> FilePath
+            -> MantisM m (A.Value, TxMetadata, Value)
 readMinting policyId filename =
   do
-    Just (A.Object json) <- A.decodeFileStrict filename
+    (A.Object json, metadata) <- readMetadata' filename
     let
       minting =
         valueFromList
@@ -222,6 +254,4 @@ readMinting policyId filename =
           $ H.singleton
             (T.pack . BS.unpack $ serialiseToRawBytesHex policyId)
             (A.Object json)
-      Right metadata = metadataFromJson TxMetadataJsonNoSchema json'
     return (json', metadata, minting)
-

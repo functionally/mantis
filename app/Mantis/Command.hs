@@ -9,12 +9,24 @@ module Mantis.Command (
 
 import Data.Version (Version, showVersion)
 import Mantis.Command.Types (Mantis(..))
+import Mantis.Types (debugMantis, runMantisToIO)
+import System.Exit (exitFailure)
+import System.IO (hPutStrLn, stderr)
 
 import qualified Mantis.Command.Fingerprint as Fingerprint
 import qualified Mantis.Command.Mint        as Mint
 import qualified Mantis.Command.Script      as Script
 import qualified Mantis.Command.Transact    as Transact
 import qualified Options.Applicative        as O
+
+
+data Command =
+  Command
+  {
+    quiet  :: Bool
+  , mantis :: Mantis
+  }
+    deriving (Eq, Ord, Read, Show)
 
 
 main :: Version -> IO ()
@@ -26,12 +38,15 @@ main version =
           (
                 O.helper
             <*> versionOption
-            <*> O.hsubparser
-                (
-                     Fingerprint.command
-                  <> Mint.command
-                  <> Script.command
-                  <> Transact.command
+            <*> (
+                      Command
+                  <$> verboseOption
+                  <*> O.hsubparser (
+                           Fingerprint.command
+                        <> Mint.command
+                        <> Script.command
+                        <> Transact.command
+                      )
                 )
           )
           (
@@ -43,10 +58,18 @@ main version =
         O.infoOption
           ("Mantis " ++ showVersion version)
           (O.long "version" <> O.help "Show version.")
-    command <- O.execParser parser
-    case command of
-      Transact{..}    -> Transact.main configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
-      Mint{..}        -> Mint.main configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
-      Script{..}      -> Script.main configFile tokenSlot scriptFile
-      Fingerprint{..} -> Fingerprint.main policyId assetName 
-
+      verboseOption =
+        O.switch
+          (O.long "quiet" <> O.help "Minimal output.")
+    Command{..} <- O.execParser parser
+    let
+      printer = if quiet then const $ return () else debugMantis
+    result <- runMantisToIO
+      $ case mantis of
+          Transact{..}    -> Transact.main printer configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
+          Mint{..}        -> Mint.main printer configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
+          Script{..}      -> Script.main printer configFile tokenSlot scriptFile
+          Fingerprint{..} -> Fingerprint.main printer policyId assetName 
+    case result of
+      Right () -> return ()
+      Left e -> hPutStrLn stderr e >> exitFailure

@@ -1,7 +1,7 @@
 cabal-version: >= 1.10
 
 name        : mantis
-version     : 0.2.1.0
+version     : 0.2.4.0
 license     : MIT
 license-file: LICENSE
 author      : Brian W Bush
@@ -21,6 +21,7 @@ executable mantis
                     Mantis.Query
                     Mantis.Script
                     Mantis.Transaction
+                    Mantis.Types
                     Mantis.Wallet
                     Paths_mantis
   build-depends   : base >= 4.14 && < 4.15

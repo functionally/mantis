@@ -11,12 +11,13 @@ module Mantis.Command.Script (
 import Cardano.Api (NetworkId(..))
 import Cardano.Api.Protocol (Protocol(..))
 import Cardano.Api.Typed (NetworkMagic(..))
-import Control.Monad.Except (runExceptT)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Extra (whenJust)
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Mantis.Command.Types (Configuration(..), Mantis(..), SlotRef)
 import Mantis.Query (adjustSlot, queryTip)
 import Mantis.Script (mintingScript)
+import Mantis.Types (MantisM)
 import Mantis.Wallet (makeVerificationKeyHash, readVerificationKey)
 
 import qualified Cardano.Chain.Slotting as Chain (EpochSlots(..))
@@ -38,38 +39,41 @@ options =
     <*> O.optional (O.strOption     $ O.long "script"  <> O.metavar "SCRIPT_FILE" <> O.help "Path to output script JSON file."                                                          )
 
 
-main :: FilePath
+main :: MonadFail m
+     => MonadIO m
+     => (String -> MantisM m ())
+     -> FilePath
      -> Maybe SlotRef
      -> Maybe FilePath
-     -> IO ()
-main configFile tokenSlot scriptFile =
+     -> MantisM m ()
+main debugMantis configFile tokenSlot scriptFile =
   do
-    Configuration{..} <- read <$> readFile configFile
+    Configuration{..} <- liftIO $ read <$> readFile configFile
 
     let
       protocol = CardanoProtocol $ Chain.EpochSlots epochSlots
       network = maybe Mainnet (Testnet . NetworkMagic) magic
-    putStrLn ""
-    putStrLn $ "Network: " ++ show network
+    debugMantis ""
+    debugMantis $ "Network: " ++ show network
 
-    Right tip <- runExceptT $ queryTip protocol network
-    putStrLn ""
-    putStrLn $ "Tip: " ++ show tip
+    tip <- queryTip protocol network
+    debugMantis ""
+    debugMantis $ "Tip: " ++ show tip
     let
       before = (`adjustSlot` tip) <$> tokenSlot
 
     verificationKey <- readVerificationKey verificationKeyFile
-    let
-      verificationKeyHash = makeVerificationKeyHash verificationKey
-    putStrLn ""
-    putStrLn $ "Verification key hash: " ++ show verificationKeyHash
+    verificationKeyHash <- makeVerificationKeyHash verificationKey
+    debugMantis ""
+    debugMantis $ "Verification key hash: " ++ show verificationKeyHash
 
     let
       (script, scriptHash) = mintingScript verificationKeyHash before
-    putStrLn ""
-    putStrLn $ "Policy: " ++ show script
-    putStrLn ""
-    putStrLn $ "Policy ID: " ++ show scriptHash
+    debugMantis ""
+    debugMantis $ "Policy: " ++ show script
+    debugMantis ""
+    debugMantis $ "Policy ID: " ++ show scriptHash
 
-    whenJust scriptFile
-     (`LBS.writeFile` encodePretty script)
+    liftIO
+      $ whenJust scriptFile
+        (`LBS.writeFile` encodePretty script)

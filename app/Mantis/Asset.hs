@@ -15,10 +15,10 @@ import Crypto.Hash (hash)
 import Crypto.Hash.Algorithms (Blake2b_160)
 import Data.ByteArray (convert)
 import Data.Text (Text)
+import Mantis.Types (MantisM, foistMantisEither, throwMantis)
 
 import qualified Data.ByteString.Char8  as BS     (ByteString, pack)
 import qualified Data.ByteString.Base16 as Base16 (decode)
-
 
 
 assetPrefix :: HumanReadablePart
@@ -36,23 +36,26 @@ assetFingerprintBytes policyId assetName =
     $ policyId <> assetName
 
 
-assetFingerprintString :: String
+assetFingerprintString :: Monad m
+                       => String
                        -> String
-                       -> Either String Text
+                       -> MantisM m Text
 assetFingerprintString policyId assetName =
-  do
-    policyId' <- Base16.decode $ BS.pack policyId
-    let
-      assetName' = BS.pack assetName
-    return
-      $ assetFingerprintBytes policyId' assetName'
+  let
+    assetName' = BS.pack assetName
+  in
+    fmap (`assetFingerprintBytes` assetName')
+     . foistMantisEither
+     . Base16.decode
+     $ BS.pack policyId
 
 
-assetFingerprint :: AssetId
-                 -> Maybe Text
+assetFingerprint :: Monad m
+                 => AssetId
+                 -> MantisM m Text
 assetFingerprint (AssetId (PolicyId scriptHash) (AssetName assetName)) =
-  Just
+  return
     $ assetFingerprintBytes
       (serialiseToRawBytes scriptHash)
       assetName
-assetFingerprint _ = Nothing
+assetFingerprint _ = throwMantis "Non-token asset."
