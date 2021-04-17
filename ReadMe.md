@@ -28,6 +28,7 @@ where `$NETWORK` is either `mainnet` or `testnet`.
 	Available options:
 	  -h,--help                Show this help text
 	  --version                Show version.
+          --quiet                  Minimal output.
 	
 	Available commands:
 	  fingerprint              Compute the Bech32 fingerprint of a token.
