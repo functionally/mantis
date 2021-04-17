@@ -23,8 +23,8 @@ import qualified Options.Applicative        as O
 data Command =
   Command
   {
-    verbose :: Bool
-  , mantis  :: Mantis
+    quiet  :: Bool
+  , mantis :: Mantis
   }
     deriving (Eq, Ord, Read, Show)
 
@@ -60,10 +60,10 @@ main version =
           (O.long "version" <> O.help "Show version.")
       verboseOption =
         O.switch
-          (O.long "verbose" <> O.help "Verbose output.")
+          (O.long "quiet" <> O.help "Minimal output.")
     Command{..} <- O.execParser parser
     let
-      printer = if verbose then debugMantis else const $ return ()
+      printer = if quiet then const $ return () else debugMantis
     result <- runMantisToIO
       $ case mantis of
           Transact{..}    -> Transact.main printer configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
