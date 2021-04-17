@@ -5,13 +5,13 @@ module Mantis.Command.Fingerprint (
 ) where
 
 
-import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.IO.Class (MonadIO)
 import Mantis.Asset (assetFingerprintString)
 import Mantis.Command.Types (Mantis(Fingerprint))
-import Mantis.Types (MantisM)
+import Mantis.Types (MantisM, printMantis)
 
 import qualified Options.Applicative as O
-import qualified Data.Text.IO as T (putStrLn)
+import qualified Data.Text as T (unpack)
 
 
 command :: O.Mod O.CommandFields Mantis
@@ -34,4 +34,4 @@ main :: MonadIO m
 main policyId assetName =
   do
     fingerprint <- assetFingerprintString policyId assetName
-    liftIO $ T.putStrLn fingerprint
+    printMantis $ T.unpack fingerprint

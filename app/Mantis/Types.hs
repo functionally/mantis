@@ -6,6 +6,9 @@ module Mantis.Types (
   MantisM(..)
 , mantisM
 , runMantisToIO
+, logMantis
+, printMantis
+, debugMantis
 , foistMantis
 , foistMantisEither
 , foistMantisEitherIO
@@ -22,6 +25,7 @@ import Control.Monad.Except (MonadError)
 import Control.Monad.Trans (MonadTrans, lift)
 import Control.Monad.Trans.Except (ExceptT(..), runExceptT, throwE, withExceptT)
 import Control.Monad.Trans.Except.Extra (hoistExceptT)
+import System.IO (hPutStrLn, stderr)
 
 
 newtype MantisM m a = MantisM {runMantisM :: ExceptT String m a}
@@ -92,3 +96,26 @@ throwMantis :: Monad m
             => String
             -> MantisM m a
 throwMantis = MantisM . throwE
+
+
+logMantis :: MonadIO m
+          => Bool
+          -> String
+          -> MantisM m ()
+logMantis out =
+  liftIO
+    . if out
+        then putStrLn 
+        else hPutStrLn stderr
+
+
+printMantis :: MonadIO m
+            => String
+            -> MantisM m ()
+printMantis = logMantis True
+
+
+debugMantis :: MonadIO m
+            => String
+            -> MantisM m ()
+debugMantis = logMantis False

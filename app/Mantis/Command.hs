@@ -10,6 +10,7 @@ module Mantis.Command (
 import Data.Version (Version, showVersion)
 import Mantis.Command.Types (Mantis(..))
 import Mantis.Types (runMantisToIO)
+import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
 
 import qualified Mantis.Command.Fingerprint as Fingerprint
@@ -54,4 +55,4 @@ main version =
           Fingerprint{..} -> Fingerprint.main policyId assetName 
     case result of
       Right () -> return ()
-      Left e -> hPutStrLn stderr e
+      Left e -> hPutStrLn stderr e >> exitFailure

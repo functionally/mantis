@@ -21,7 +21,7 @@ import Data.Maybe (fromMaybe, maybeToList)
 import Mantis.Command.Types (Configuration(..), Mantis(..), SlotRef)
 import Mantis.Query (adjustSlot, queryProtocol, queryTip, queryUTxO, submitTransaction)
 import Mantis.Transaction (fromShelleyUTxO, includeFee, makeMinting, makeTransaction, printUTxO, printValue, readMetadata, summarizeValues, supportedMultiAsset)
-import Mantis.Types (MantisM, foistMantisEither)
+import Mantis.Types (MantisM, foistMantisEither, printMantis)
 import Mantis.Wallet (makeVerificationKeyHash, readAddress, readSigningKey, readVerificationKey)
 
 import qualified Cardano.Chain.Slotting     as Chain (EpochSlots(..))
@@ -65,46 +65,46 @@ main configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadata
     let
       protocol = CardanoProtocol $ Chain.EpochSlots epochSlots
       network = maybe Mainnet (Testnet . NetworkMagic) magic
-    liftIO $ putStrLn ""
-    liftIO . putStrLn $ "Network: " ++ show network
+    printMantis ""
+    printMantis $ "Network: " ++ show network
 
     tip <- queryTip protocol network
-    liftIO $ putStrLn ""
-    liftIO . putStrLn $ "Tip: " ++ show tip
+    printMantis ""
+    printMantis $ "Tip: " ++ show tip
     let
       before = (`adjustSlot` tip) <$> tokenSlot
 
     pparams <- queryProtocol protocol network
-    liftIO $ putStrLn ""
-    liftIO . putStrLn $ "Protocol parameters: " ++ LBS.unpack (encode pparams)
+    printMantis ""
+    printMantis $ "Protocol parameters: " ++ LBS.unpack (encode pparams)
 
     address <- readAddress addressString
     address' <- readAddress $ fromMaybe addressString outputAddress
-    liftIO $ putStrLn ""
-    liftIO . putStrLn $ "Input Address: " ++ addressString
-    liftIO . putStrLn $ "Output Address: " ++ fromMaybe addressString outputAddress
+    printMantis ""
+    printMantis $ "Input Address: " ++ addressString
+    printMantis $ "Output Address: " ++ fromMaybe addressString outputAddress
 
     verificationKey <- readVerificationKey verificationKeyFile
     verificationKeyHash <- makeVerificationKeyHash verificationKey
     signingKey <- readSigningKey signingKeyFile
-    liftIO $ putStrLn ""
-    liftIO . putStrLn $ "Verification key hash: " ++ show verificationKeyHash
-    liftIO $ putStrLn "Signing key . . . read successfuly."
+    printMantis ""
+    printMantis $ "Verification key hash: " ++ show verificationKeyHash
+    printMantis "Signing key . . . read successfuly."
 
-    liftIO $ putStrLn ""
-    liftIO $ putStrLn "Unspect UTxO:"
+    printMantis ""
+    printMantis "Unspect UTxO:"
     utxo <- queryUTxO protocol address network
     printUTxO "  " utxo
 
     let
       (nIn, value) = summarizeValues utxo
-    liftIO $ putStrLn ""
-    liftIO $ putStrLn "Total value:"
+    printMantis ""
+    printMantis "Total value:"
     printValue "  " value
 
     metadata <- sequence $ readMetadata <$> metadataFile
-    liftIO $ putStrLn ""
-    liftIO $ putStrLn "Metadata . . . read and parsed."
+    printMantis ""
+    printMantis "Metadata . . . read and parsed."
 
     let
       (script, minting, value') =
@@ -119,10 +119,10 @@ main configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadata
                                                           before
                        in
                          (Just script', Just minting', value'')
-    liftIO $ putStrLn ""
-    liftIO . putStrLn $ "Policy: " ++ show script
-    liftIO $ putStrLn ""
-    liftIO . putStrLn $ "Minting: " ++ show minting
+    printMantis ""
+    printMantis $ "Policy: " ++ show script
+    printMantis ""
+    printMantis $ "Minting: " ++ show minting
 
     liftIO
       $ whenJust scriptFile
@@ -139,8 +139,8 @@ main configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadata
         Nothing
         minting
     txRaw <- foistMantisEither $ makeTransactionBody txBody
-    liftIO $ putStrLn ""
-    liftIO . putStrLn $ "Transaction: " ++ show txRaw
+    printMantis ""
+    printMantis $ "Transaction: " ++ show txRaw
 
     let
       witness = makeShelleyKeyWitness txRaw
@@ -148,7 +148,7 @@ main configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadata
       witness' = makeScriptWitness <$> script
       txSigned = makeSignedTransaction (witness : maybeToList witness') txRaw
     result <- submitTransaction protocol network txSigned
-    liftIO $ putStrLn ""
-    liftIO . putStrLn $ "Result: " ++ show result
-    liftIO . putStrLn $ "TxID: " ++ show (getTxId txRaw)
+    printMantis ""
+    printMantis $ "Result: " ++ show result
+    printMantis $ "TxID: " ++ show (getTxId txRaw)
 
