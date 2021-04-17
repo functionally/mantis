@@ -17,9 +17,9 @@ import Cardano.Api.Protocol (Protocol, withlocalNodeConnectInfo)
 import Cardano.Api.Shelley (anyAddressInShelleyBasedEra, toShelleyAddr)
 import Cardano.Api.TxSubmit (TxForMode(..), TxSubmitResultForMode, submitTx)
 import Cardano.Api.Typed (AddressAny, AddressInEra(..), CardanoMode, LocalNodeConnectInfo(..), NetworkId, NodeConsensusMode(..), SlotNo(..), Tx, queryNodeLocalState)
-import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Mantis.Command.Types (SlotRef(..))
-import Mantis.Types (MantisM, foistMantisIO, foistMantisExceptIO, foistMantisEitherIO)
+import Mantis.Types (MantisM, foistMantisExceptIO, foistMantisEitherIO)
 
 import qualified Cardano.CLI.Environment            as CLI       (readEnvSocketPath)
 import qualified Cardano.CLI.Types                  as CLI       (SocketPath(..))
@@ -45,7 +45,7 @@ queryTip protocol network =
       $ \connectInfo ->
         do
           Ouroboros.At slotNo <-
-            foistMantisIO
+            liftIO
               $ Ouroboros.getTipSlotNo
               <$> getLocalTip connectInfo
           return slotNo
@@ -69,7 +69,7 @@ queryProtocol protocol network =
     withlocalNodeConnectInfo protocol network sockPath
       $ \connectInfo@LocalNodeConnectInfo{localNodeConsensusMode = CardanoMode{}} ->
         do
-          tip <- foistMantisIO $ getLocalTip connectInfo
+          tip <- liftIO $ getLocalTip connectInfo
           Ouroboros.QueryResultSuccess pparams <- foistMantisEitherIO
             $ queryNodeLocalState connectInfo
               (
@@ -95,7 +95,7 @@ queryUTxO protocol address network =
     withlocalNodeConnectInfo protocol network sockPath
       $ \connectInfo@LocalNodeConnectInfo{localNodeConsensusMode = CardanoMode{}} ->
         do
-          tip <- foistMantisIO $  getLocalTip connectInfo
+          tip <- liftIO $  getLocalTip connectInfo
           Ouroboros.QueryResultSuccess utxo <- foistMantisEitherIO
             $ queryNodeLocalState connectInfo
               (
@@ -115,7 +115,7 @@ submitTransaction protocol network tx =
     CLI.SocketPath sockPath <- foistMantisExceptIO CLI.readEnvSocketPath
     withlocalNodeConnectInfo protocol network sockPath
       $ \connectInfo@LocalNodeConnectInfo{localNodeConsensusMode = CardanoMode{}} ->
-        foistMantisIO
+        liftIO
           . submitTx connectInfo
           . TxForCardanoMode 
           $ InAnyCardanoEra MaryEra tx

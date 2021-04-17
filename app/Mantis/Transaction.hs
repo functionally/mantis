@@ -22,9 +22,9 @@ module Mantis.Transaction (
 import Cardano.Api.Shelley (TxBodyContent(..), TxId(..), TxIn(..), TxOut(..), TxOutValue(..), fromMaryValue, fromShelleyAddr)
 import Cardano.Api.Eras (CardanoEra(..), MaryEra, ShelleyLedgerEra)
 import Cardano.Api.Typed (AssetId(..), AssetName(..), AuxScriptsSupportedInEra(..), MultiAssetSupportedInEra(..), Hash, NetworkId, PaymentKey, PolicyId(..), Quantity(..), ScriptInEra, SlotNo(..), TxAuxScripts(..), TxCertificates(..), TxFee(..), TxFeesExplicitInEra(..), TxMetadata, TxMetadataInEra(..), TxMetadataSupportedInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), ValidityNoUpperBoundSupportedInEra(..), ValidityUpperBoundSupportedInEra(..), Value, auxScriptsSupportedInEra, estimateTransactionFee, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, serialiseToRawBytesHex, txFeesExplicitInEra, validityNoUpperBoundSupportedInEra, validityUpperBoundSupportedInEra, valueFromList)
-import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Mantis.Script (mintingScript)
-import Mantis.Types (MantisM, foistMantisEither, foistMantisIO, foistMantisMaybeIO)
+import Mantis.Types (MantisM, foistMantisEither, foistMantisMaybeIO)
 
 import qualified Cardano.Ledger.Mary.Value            as Mary      (AssetName(..), PolicyID(..), Value(..))
 import qualified Data.Aeson                           as A         (Value(..), decodeFileStrict)
@@ -161,7 +161,7 @@ printUTxO indent (Shelley.UTxO utxoMap) =
   sequence_
     [
       do
-        foistMantisIO
+        liftIO
           . putStrLn
           $ indent ++ "Transaction: " ++ show' txhash  ++ "#" ++ show txin
         printValue (indent ++ "  ") value'
@@ -175,7 +175,7 @@ printValue :: MonadIO m
            -> Mary.Value era
            -> MantisM m ()
 printValue indent (Mary.Value lovelace policies) =
-  foistMantisIO
+  liftIO
     $ do
       putStrLn $ indent ++ show lovelace ++ " Lovelace"
       sequence_

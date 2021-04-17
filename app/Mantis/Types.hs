@@ -4,13 +4,13 @@
 
 module Mantis.Types (
   MantisM(..)
+, mantisM
 , runMantisToIO
 , foistMantis
 , foistMantisEither
 , foistMantisEitherIO
 , foistMantisExcept
 , foistMantisExceptIO
-, foistMantisIO
 , foistMantisMaybe
 , foistMantisMaybeIO
 , throwMantis
@@ -19,6 +19,7 @@ module Mantis.Types (
 
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Except (MonadError)
+import Control.Monad.Trans (MonadTrans, lift)
 import Control.Monad.Trans.Except (ExceptT(..), runExceptT, throwE, withExceptT)
 import Control.Monad.Trans.Except.Extra (hoistExceptT)
 
@@ -27,9 +28,36 @@ newtype MantisM m a = MantisM {runMantisM :: ExceptT String m a}
   deriving (Applicative, Functor, Monad, MonadError String, MonadFail, MonadIO) 
 
 
+mantisM :: Monad m
+        => MonadTrans t
+        => MantisM m a
+        -> t (MantisM m) a
+mantisM = lift
+
+
 runMantisToIO :: MantisM IO a
               -> IO (Either String a)
 runMantisToIO = runExceptT . runMantisM
+
+
+foistMantis :: Monad m
+            => a
+            -> MantisM m a
+foistMantis = MantisM . ExceptT . return . Right
+
+
+foistMantisEither :: Monad m
+                  => Show e
+                  => Either e a
+                  -> MantisM m a
+foistMantisEither = MantisM . withExceptT show . ExceptT . return
+
+
+foistMantisEitherIO :: MonadIO m
+                    => Show e
+                    => IO (Either e a)
+                    -> MantisM m a
+foistMantisEitherIO = MantisM . hoistExceptT liftIO . withExceptT show . ExceptT
 
 
 foistMantisExcept :: Monad m
@@ -46,11 +74,11 @@ foistMantisExceptIO :: MonadIO m
 foistMantisExceptIO = MantisM . hoistExceptT liftIO . withExceptT show
 
 
-foistMantisEitherIO :: MonadIO m
-                    => Show e
-                    => IO (Either e a)
-                    -> MantisM m a
-foistMantisEitherIO = MantisM . hoistExceptT liftIO . withExceptT show . ExceptT
+foistMantisMaybe :: Monad m
+                 => String
+                 -> Maybe a
+                 -> MantisM m a
+foistMantisMaybe message = MantisM . ExceptT . return . maybe (Left message) Right
 
 
 foistMantisMaybeIO :: MonadIO m
@@ -59,32 +87,6 @@ foistMantisMaybeIO :: MonadIO m
                    -> MantisM m a
 foistMantisMaybeIO message = MantisM . hoistExceptT liftIO . ExceptT . fmap (maybe (Left message) Right)
 
-
-foistMantisMaybe :: Monad m
-                 => String
-                 -> Maybe a
-                 -> MantisM m a
-foistMantisMaybe message = MantisM . ExceptT . return . maybe (Left message) Right
-
-
-foistMantisEither :: Monad m
-                  => Show e
-                  => Either e a
-                  -> MantisM m a
-foistMantisEither = MantisM . withExceptT show . ExceptT . return
-
-
-foistMantis :: Monad m
-            => a
-            -> MantisM m a
-foistMantis = MantisM . ExceptT . return . Right
-
-
-foistMantisIO :: MonadIO m
-              => IO a
-              -> MantisM m a
-foistMantisIO = liftIO
--- FIXME: replace with liftIO
 
 throwMantis :: Monad m
             => String
