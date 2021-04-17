@@ -28,10 +28,11 @@ options =
 
 
 main :: MonadIO m
-     => String
+     => (String -> MantisM m ())
+     -> String
      -> String
      -> MantisM m ()
-main policyId assetName =
+main _ policyId assetName =
   do
     fingerprint <- assetFingerprintString policyId assetName
     printMantis $ T.unpack fingerprint

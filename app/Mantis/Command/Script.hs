@@ -17,7 +17,7 @@ import Data.Aeson.Encode.Pretty (encodePretty)
 import Mantis.Command.Types (Configuration(..), Mantis(..), SlotRef)
 import Mantis.Query (adjustSlot, queryTip)
 import Mantis.Script (mintingScript)
-import Mantis.Types (MantisM, printMantis)
+import Mantis.Types (MantisM)
 import Mantis.Wallet (makeVerificationKeyHash, readVerificationKey)
 
 import qualified Cardano.Chain.Slotting as Chain (EpochSlots(..))
@@ -41,37 +41,38 @@ options =
 
 main :: MonadFail m
      => MonadIO m
-     => FilePath
+     => (String -> MantisM m ())
+     -> FilePath
      -> Maybe SlotRef
      -> Maybe FilePath
      -> MantisM m ()
-main configFile tokenSlot scriptFile =
+main debugMantis configFile tokenSlot scriptFile =
   do
     Configuration{..} <- liftIO $ read <$> readFile configFile
 
     let
       protocol = CardanoProtocol $ Chain.EpochSlots epochSlots
       network = maybe Mainnet (Testnet . NetworkMagic) magic
-    printMantis ""
-    printMantis $ "Network: " ++ show network
+    debugMantis ""
+    debugMantis $ "Network: " ++ show network
 
     tip <- queryTip protocol network
-    printMantis ""
-    printMantis $ "Tip: " ++ show tip
+    debugMantis ""
+    debugMantis $ "Tip: " ++ show tip
     let
       before = (`adjustSlot` tip) <$> tokenSlot
 
     verificationKey <- readVerificationKey verificationKeyFile
     verificationKeyHash <- makeVerificationKeyHash verificationKey
-    printMantis ""
-    printMantis $ "Verification key hash: " ++ show verificationKeyHash
+    debugMantis ""
+    debugMantis $ "Verification key hash: " ++ show verificationKeyHash
 
     let
       (script, scriptHash) = mintingScript verificationKeyHash before
-    printMantis ""
-    printMantis $ "Policy: " ++ show script
-    printMantis ""
-    printMantis $ "Policy ID: " ++ show scriptHash
+    debugMantis ""
+    debugMantis $ "Policy: " ++ show script
+    debugMantis ""
+    debugMantis $ "Policy ID: " ++ show scriptHash
 
     liftIO
       $ whenJust scriptFile

@@ -50,62 +50,63 @@ options =
 
 main :: MonadFail m
      => MonadIO m
-     => FilePath
+     => (String -> MantisM m ())
+     -> FilePath
      -> FilePath
      -> Maybe SlotRef
      -> Maybe String
      -> Maybe FilePath
      -> Maybe FilePath
      -> MantisM m ()
-main configFile mintingFile tokenSlot outputAddress scriptFile metadataFile =
+main debugMantis configFile mintingFile tokenSlot outputAddress scriptFile metadataFile =
   do
     Configuration{..} <- liftIO $ read <$> readFile configFile
 
     let
       protocol = CardanoProtocol $ Chain.EpochSlots epochSlots
       network = maybe Mainnet (Testnet . NetworkMagic) magic
-    printMantis ""
-    printMantis $ "Network: " ++ show network
+    debugMantis ""
+    debugMantis $ "Network: " ++ show network
 
     tip <- queryTip protocol network
-    printMantis ""
-    printMantis $ "Tip: " ++ show tip
+    debugMantis ""
+    debugMantis $ "Tip: " ++ show tip
     let
       before = (`adjustSlot` tip) <$> tokenSlot
 
     pparams <- queryProtocol protocol network
-    printMantis ""
-    printMantis $ "Protocol parameters: " ++ LBS.unpack (encode pparams)
+    debugMantis ""
+    debugMantis $ "Protocol parameters: " ++ LBS.unpack (encode pparams)
 
     address <- readAddress addressString
     address' <- readAddress $ fromMaybe addressString outputAddress
-    printMantis ""
-    printMantis $ "Input Address: " ++ addressString
-    printMantis $ "Output Address: " ++ fromMaybe addressString outputAddress
+    debugMantis ""
+    debugMantis $ "Input Address: " ++ addressString
+    debugMantis $ "Output Address: " ++ fromMaybe addressString outputAddress
 
     verificationKey <- readVerificationKey verificationKeyFile
     verificationKeyHash <- makeVerificationKeyHash verificationKey
     signingKey <- readSigningKey signingKeyFile
-    printMantis ""
-    printMantis $ "Verification key hash: " ++ show verificationKeyHash
-    printMantis "Signing key . . . read successfuly."
+    debugMantis ""
+    debugMantis $ "Verification key hash: " ++ show verificationKeyHash
+    debugMantis "Signing key . . . read successfuly."
 
-    printMantis ""
-    printMantis "Unspect UTxO:"
+    debugMantis ""
+    debugMantis "Unspect UTxO:"
     utxo <- queryUTxO protocol address network
     printUTxO "  " utxo
 
     let
       (nIn, value) = summarizeValues utxo
-    printMantis ""
-    printMantis "Total value:"
+    debugMantis ""
+    debugMantis "Total value:"
     printValue "  " value
 
     let
       (script, scriptHash) = mintingScript verificationKeyHash before
-    printMantis ""
-    printMantis $ "Policy ID: " ++ show scriptHash
-    printMantis $ "Policy: " ++ show script
+    debugMantis ""
+    debugMantis $ "Policy ID: " ++ show scriptHash
+    debugMantis $ "Policy: " ++ show script
     liftIO
       $ whenJust scriptFile
         (`LBS.writeFile` encodePretty script)
@@ -113,13 +114,13 @@ main configFile mintingFile tokenSlot outputAddress scriptFile metadataFile =
     (json, metadata, minting) <- readMinting (PolicyId scriptHash) mintingFile
     let
       value' = fromMaryValue value <> minting
-    printMantis ""
-    printMantis "Metadata . . . read and parsed."
+    debugMantis ""
+    debugMantis "Metadata . . . read and parsed."
     liftIO
       $ whenJust metadataFile
         (`LBS.writeFile` encodePretty json)
-    printMantis ""
-    printMantis $ "Minting: " ++ show minting
+    debugMantis ""
+    debugMantis $ "Minting: " ++ show minting
 
     let
       Just address'' = anyAddressInEra MaryEra address'
@@ -132,8 +133,8 @@ main configFile mintingFile tokenSlot outputAddress scriptFile metadataFile =
         Nothing
         (Just minting)
     txRaw <- foistMantisEither $ makeTransactionBody txBody
-    printMantis ""
-    printMantis $ "Transaction: " ++ show txRaw
+    debugMantis ""
+    debugMantis $ "Transaction: " ++ show txRaw
 
     let
       witness = makeShelleyKeyWitness txRaw

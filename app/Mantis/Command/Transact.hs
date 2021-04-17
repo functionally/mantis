@@ -50,7 +50,8 @@ options =
 
 main :: MonadFail m
      => MonadIO m
-     => FilePath
+     => (String -> MantisM m ())
+     -> FilePath
      -> Maybe String
      -> Maybe Integer
      -> Maybe SlotRef
@@ -58,53 +59,53 @@ main :: MonadFail m
      -> Maybe FilePath
      -> Maybe FilePath
      -> MantisM m ()
-main configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile =
+main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile =
   do
     Configuration{..} <- liftIO $ read <$> readFile configFile
 
     let
       protocol = CardanoProtocol $ Chain.EpochSlots epochSlots
       network = maybe Mainnet (Testnet . NetworkMagic) magic
-    printMantis ""
-    printMantis $ "Network: " ++ show network
+    debugMantis ""
+    debugMantis $ "Network: " ++ show network
 
     tip <- queryTip protocol network
-    printMantis ""
-    printMantis $ "Tip: " ++ show tip
+    debugMantis ""
+    debugMantis $ "Tip: " ++ show tip
     let
       before = (`adjustSlot` tip) <$> tokenSlot
 
     pparams <- queryProtocol protocol network
-    printMantis ""
-    printMantis $ "Protocol parameters: " ++ LBS.unpack (encode pparams)
+    debugMantis ""
+    debugMantis $ "Protocol parameters: " ++ LBS.unpack (encode pparams)
 
     address <- readAddress addressString
     address' <- readAddress $ fromMaybe addressString outputAddress
-    printMantis ""
-    printMantis $ "Input Address: " ++ addressString
-    printMantis $ "Output Address: " ++ fromMaybe addressString outputAddress
+    debugMantis ""
+    debugMantis $ "Input Address: " ++ addressString
+    debugMantis $ "Output Address: " ++ fromMaybe addressString outputAddress
 
     verificationKey <- readVerificationKey verificationKeyFile
     verificationKeyHash <- makeVerificationKeyHash verificationKey
     signingKey <- readSigningKey signingKeyFile
-    printMantis ""
-    printMantis $ "Verification key hash: " ++ show verificationKeyHash
-    printMantis "Signing key . . . read successfuly."
+    debugMantis ""
+    debugMantis $ "Verification key hash: " ++ show verificationKeyHash
+    debugMantis "Signing key . . . read successfuly."
 
-    printMantis ""
-    printMantis "Unspect UTxO:"
+    debugMantis ""
+    debugMantis "Unspect UTxO:"
     utxo <- queryUTxO protocol address network
     printUTxO "  " utxo
 
     let
       (nIn, value) = summarizeValues utxo
-    printMantis ""
-    printMantis "Total value:"
+    debugMantis ""
+    debugMantis "Total value:"
     printValue "  " value
 
     metadata <- sequence $ readMetadata <$> metadataFile
-    printMantis ""
-    printMantis "Metadata . . . read and parsed."
+    debugMantis ""
+    debugMantis "Metadata . . . read and parsed."
 
     let
       (script, minting, value') =
@@ -119,10 +120,10 @@ main configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadata
                                                           before
                        in
                          (Just script', Just minting', value'')
-    printMantis ""
-    printMantis $ "Policy: " ++ show script
-    printMantis ""
-    printMantis $ "Minting: " ++ show minting
+    debugMantis ""
+    debugMantis $ "Policy: " ++ show script
+    debugMantis ""
+    debugMantis $ "Minting: " ++ show minting
 
     liftIO
       $ whenJust scriptFile
@@ -139,8 +140,8 @@ main configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadata
         Nothing
         minting
     txRaw <- foistMantisEither $ makeTransactionBody txBody
-    printMantis ""
-    printMantis $ "Transaction: " ++ show txRaw
+    debugMantis ""
+    debugMantis $ "Transaction: " ++ show txRaw
 
     let
       witness = makeShelleyKeyWitness txRaw
@@ -148,7 +149,7 @@ main configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadata
       witness' = makeScriptWitness <$> script
       txSigned = makeSignedTransaction (witness : maybeToList witness') txRaw
     result <- submitTransaction protocol network txSigned
-    printMantis ""
+    debugMantis ""
     printMantis $ "Result: " ++ show result
     printMantis $ "TxID: " ++ show (getTxId txRaw)
 
