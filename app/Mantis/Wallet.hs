@@ -11,7 +11,8 @@ module Mantis.Wallet (
 
 
 import Cardano.Api.Typed (AddressAny, AsType(..), Hash, PaymentExtendedKey, PaymentKey, SigningKey, castVerificationKey, deserialiseAddress, verificationKeyHash)
-import Control.Monad.Except (runExceptT)
+import Control.Monad.IO.Class (MonadIO)
+import Mantis.Types (MantisM, foistMantisEitherIO, foistMantisExceptIO, foistMantisMaybe, throwMantis)
 
 import qualified Cardano.CLI.Shelley.Key         as CLI (VerificationKeyTextOrFile(..), readKeyFileTextEnvelope)
 import qualified Cardano.CLI.Shelley.Run.Address as CLI (SomeAddressVerificationKey(..), readAddressVerificationKeyTextOrFile)
@@ -19,29 +20,39 @@ import qualified Cardano.CLI.Types               as CLI (VerificationKeyFile(..)
 import qualified Data.Text                       as T   (pack)
 
 
-readAddress :: String -> Maybe AddressAny
-readAddress = deserialiseAddress AsAddressAny . T.pack 
+readAddress :: Monad m
+            => String
+            -> MantisM m AddressAny
+readAddress =
+  foistMantisMaybe "Could not deserialize address."
+    . deserialiseAddress AsAddressAny
+    . T.pack
 
 
-readVerificationKey :: FilePath -> IO CLI.SomeAddressVerificationKey
-readVerificationKey filename =
-  do
-    let
-      file = CLI.VktofVerificationKeyFile $ CLI.VerificationKeyFile filename
-    result <- runExceptT $ CLI.readAddressVerificationKeyTextOrFile file
-    case result of
-      Left e  -> error $ show e
-      Right k -> return k
+readVerificationKey :: MonadIO m
+                    => FilePath
+                    -> MantisM m CLI.SomeAddressVerificationKey
+readVerificationKey =
+  foistMantisExceptIO
+    . CLI.readAddressVerificationKeyTextOrFile
+    . CLI.VktofVerificationKeyFile
+    . CLI.VerificationKeyFile
 
 
-makeVerificationKeyHash :: CLI.SomeAddressVerificationKey -> Hash PaymentKey
-makeVerificationKeyHash (CLI.APaymentExtendedVerificationKey key) = verificationKeyHash $ castVerificationKey key
-makeVerificationKeyHash _ = undefined
+makeVerificationKeyHash :: Monad m
+                        => CLI.SomeAddressVerificationKey
+                        -> MantisM m (Hash PaymentKey)
+makeVerificationKeyHash (CLI.APaymentExtendedVerificationKey key) =
+  return
+    . verificationKeyHash
+    $ castVerificationKey key
+makeVerificationKeyHash _ =
+  throwMantis "Unsupported address type."
 
 
-
-readSigningKey :: FilePath -> IO (SigningKey PaymentExtendedKey)
-readSigningKey filename =
-  do
-    Right result <- CLI.readKeyFileTextEnvelope (AsSigningKey AsPaymentExtendedKey) filename
-    return result
+readSigningKey :: MonadIO m
+               => FilePath
+               -> MantisM m (SigningKey PaymentExtendedKey)
+readSigningKey =
+  foistMantisEitherIO
+    . CLI.readKeyFileTextEnvelope (AsSigningKey AsPaymentExtendedKey)

@@ -9,6 +9,8 @@ module Mantis.Command (
 
 import Data.Version (Version, showVersion)
 import Mantis.Command.Types (Mantis(..))
+import Mantis.Types (runMantisToIO)
+import System.IO (hPutStrLn, stderr)
 
 import qualified Mantis.Command.Fingerprint as Fingerprint
 import qualified Mantis.Command.Mint        as Mint
@@ -44,9 +46,12 @@ main version =
           ("Mantis " ++ showVersion version)
           (O.long "version" <> O.help "Show version.")
     command <- O.execParser parser
-    case command of
-      Transact{..}    -> Transact.main configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
-      Mint{..}        -> Mint.main configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
-      Script{..}      -> Script.main configFile tokenSlot scriptFile
-      Fingerprint{..} -> Fingerprint.main policyId assetName 
-
+    result <- runMantisToIO
+      $ case command of
+          Transact{..}    -> Transact.main configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
+          Mint{..}        -> Mint.main configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
+          Script{..}      -> Script.main configFile tokenSlot scriptFile
+          Fingerprint{..} -> Fingerprint.main policyId assetName 
+    case result of
+      Right () -> return ()
+      Left e -> hPutStrLn stderr e

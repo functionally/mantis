@@ -5,10 +5,10 @@ module Mantis.Command.Fingerprint (
 ) where
 
 
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Mantis.Asset (assetFingerprintString)
 import Mantis.Command.Types (Mantis(Fingerprint))
-import System.Exit (exitFailure)
-import System.IO (hPutStrLn, stderr)
+import Mantis.Types (MantisM)
 
 import qualified Options.Applicative as O
 import qualified Data.Text.IO as T (putStrLn)
@@ -27,10 +27,11 @@ options =
     <*> O.strArgument (O.metavar "ASSET_NAME" <> O.help "Asset name for the token.")
 
 
-main :: String
+main :: MonadIO m
+     => String
      -> String
-     -> IO ()
+     -> MantisM m ()
 main policyId assetName =
-  case assetFingerprintString policyId assetName of
-    Right fingerprint -> T.putStrLn fingerprint
-    Left  message     -> hPutStrLn stderr message >> exitFailure
+  do
+    fingerprint <- assetFingerprintString policyId assetName
+    liftIO $ T.putStrLn fingerprint

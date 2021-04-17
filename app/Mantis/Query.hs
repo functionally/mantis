@@ -17,10 +17,9 @@ import Cardano.Api.Protocol (Protocol, withlocalNodeConnectInfo)
 import Cardano.Api.Shelley (anyAddressInShelleyBasedEra, toShelleyAddr)
 import Cardano.Api.TxSubmit (TxForMode(..), TxSubmitResultForMode, submitTx)
 import Cardano.Api.Typed (AddressAny, AddressInEra(..), CardanoMode, LocalNodeConnectInfo(..), NetworkId, NodeConsensusMode(..), SlotNo(..), Tx, queryNodeLocalState)
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Except (ExceptT)
-import Control.Monad.Trans.Except.Extra (firstExceptT, newExceptT)
+import Control.Monad.IO.Class (MonadIO)
 import Mantis.Command.Types (SlotRef(..))
+import Mantis.Types (MantisM, foistMantisIO, foistMantisExceptIO, foistMantisEitherIO)
 
 import qualified Cardano.CLI.Environment            as CLI       (readEnvSocketPath)
 import qualified Cardano.CLI.Types                  as CLI       (SocketPath(..))
@@ -34,16 +33,21 @@ import qualified Shelley.Spec.Ledger.UTxO           as Shelley   (UTxO (..))
 
 
 queryTip
-  :: Protocol
+  :: MonadFail m
+  => MonadIO m
+  => Protocol
   -> NetworkId
-  -> ExceptT String IO SlotNo
+  -> MantisM m SlotNo
 queryTip protocol network =
   do
-    CLI.SocketPath sockPath <- firstExceptT show CLI.readEnvSocketPath
-    liftIO $ withlocalNodeConnectInfo protocol network sockPath
+    CLI.SocketPath sockPath <- foistMantisExceptIO CLI.readEnvSocketPath
+    withlocalNodeConnectInfo protocol network sockPath
       $ \connectInfo ->
         do
-          Ouroboros.At slotNo <- Ouroboros.getTipSlotNo <$> getLocalTip connectInfo
+          Ouroboros.At slotNo <-
+            foistMantisIO
+              $ Ouroboros.getTipSlotNo
+              <$> getLocalTip connectInfo
           return slotNo
 
 
@@ -54,18 +58,19 @@ adjustSlot (AbsoluteSlot slot ) _             = SlotNo $ fromIntegral slot
 adjustSlot (RelativeSlot delta) (SlotNo slot) = SlotNo $ slot + fromIntegral delta
 
 
-queryProtocol
-  :: Protocol
-  -> NetworkId
-  -> ExceptT String IO (Shelley.PParams (ShelleyLedgerEra MaryEra))
+queryProtocol :: MonadFail m
+              => MonadIO m
+              => Protocol
+              -> NetworkId
+              -> MantisM m (Shelley.PParams (ShelleyLedgerEra MaryEra))
 queryProtocol protocol network =
   do
-    CLI.SocketPath sockPath <- firstExceptT show CLI.readEnvSocketPath
+    CLI.SocketPath sockPath <- foistMantisExceptIO CLI.readEnvSocketPath
     withlocalNodeConnectInfo protocol network sockPath
       $ \connectInfo@LocalNodeConnectInfo{localNodeConsensusMode = CardanoMode{}} ->
         do
-          tip <- liftIO $ getLocalTip connectInfo
-          Ouroboros.QueryResultSuccess pparams <- firstExceptT show . newExceptT
+          tip <- foistMantisIO $ getLocalTip connectInfo
+          Ouroboros.QueryResultSuccess pparams <- foistMantisEitherIO
             $ queryNodeLocalState connectInfo
               (
                 Ouroboros.getTipPoint tip
@@ -74,23 +79,24 @@ queryProtocol protocol network =
           return pparams
 
 
-queryUTxO
-  :: Protocol
-  -> AddressAny
-  -> NetworkId
-  -> ExceptT String IO (Shelley.UTxO (ShelleyLedgerEra MaryEra))
+queryUTxO :: MonadFail m
+          => MonadIO m
+          => Protocol
+          -> AddressAny
+          -> NetworkId
+          -> MantisM m (Shelley.UTxO (ShelleyLedgerEra MaryEra))
 queryUTxO protocol address network =
   do
     let
       address' = toShelleyAddr
         . (anyAddressInShelleyBasedEra :: AddressAny -> AddressInEra MaryEra)
         $ address
-    CLI.SocketPath sockPath <- firstExceptT show CLI.readEnvSocketPath
+    CLI.SocketPath sockPath <- foistMantisExceptIO CLI.readEnvSocketPath
     withlocalNodeConnectInfo protocol network sockPath
       $ \connectInfo@LocalNodeConnectInfo{localNodeConsensusMode = CardanoMode{}} ->
         do
-          tip <- liftIO $ getLocalTip connectInfo
-          Ouroboros.QueryResultSuccess utxo <- firstExceptT show . newExceptT
+          tip <- foistMantisIO $  getLocalTip connectInfo
+          Ouroboros.QueryResultSuccess utxo <- foistMantisEitherIO
             $ queryNodeLocalState connectInfo
               (
                 Ouroboros.getTipPoint tip
@@ -99,17 +105,17 @@ queryUTxO protocol address network =
           return utxo
 
 
-submitTransaction
-  :: Protocol
-  -> NetworkId
-  -> Tx MaryEra
-  -> ExceptT String IO (TxSubmitResultForMode CardanoMode)
+submitTransaction :: MonadIO m
+                  => Protocol
+                  -> NetworkId
+                  -> Tx MaryEra
+                  -> MantisM m (TxSubmitResultForMode CardanoMode)
 submitTransaction protocol network tx =
   do
-    CLI.SocketPath sockPath <- firstExceptT show CLI.readEnvSocketPath
-    liftIO
-      $ withlocalNodeConnectInfo protocol network sockPath
+    CLI.SocketPath sockPath <- foistMantisExceptIO CLI.readEnvSocketPath
+    withlocalNodeConnectInfo protocol network sockPath
       $ \connectInfo@LocalNodeConnectInfo{localNodeConsensusMode = CardanoMode{}} ->
-        submitTx connectInfo
+        foistMantisIO
+          . submitTx connectInfo
           . TxForCardanoMode 
           $ InAnyCardanoEra MaryEra tx
