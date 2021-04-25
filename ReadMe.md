@@ -32,7 +32,7 @@ where `$NETWORK` is either `mainnet` or `testnet`.
 	
 	Available commands:
 	  fingerprint              Compute the Bech32 fingerprint of a token.
-          info                     Print information about a transaction or address.
+	  info                     Print information about a transaction or address.
 	  mint                     Mint batches of Cardano non-fungible tokens.
 	  script                   Construct a minting script and compute its Policy ID.
 	  transact                 Submit Cardano metadata or mint Cardano tokens.
