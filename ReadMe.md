@@ -2,7 +2,7 @@
 
 This tool provides several script-oriented utilities for the Cardano blockchain.
 
-In particular, it posts metadata or mints/burns tokens. It gathers the UTxO from the address into a transaction with output to that same address, but minting/burning tokens and/or posting metadata in the process. The cost is the minimum network fee for the transaction.
+In particular, it posts metadata or mints/burns tokens. By default, it gathers the UTxOs from the address into a transaction with output to that same address, but minting/burning tokens and/or posting metadata in the process. The cost is the minimum network fee for the transaction.
 
 It can also generate scripts, compute script addresses, and compute the fingerprint of a token.
 
@@ -132,7 +132,23 @@ The `MINTING_FILE` must be a JSON-formatted object with keys equal to the asset 
 
 ## Sample configuration file
 
-	$ cat sample.mantis 
+
+### For Mainnet
+
+	$ cat mainnet.mantis 
+	
+	Configuration {
+	  magic               = Nothing
+	, epochSlots          = 21600
+	, addressString       = "addr_test1qq9prvx8ufwutkwxx9cmmuuajaqmjqwujqlp9d8pvg6gupcvluken35ncjnu0puetf5jvttedkze02d5kf890kquh60slacjyp"
+	, verificationKeyFile = "payment.vkey"
+	, signingKeyFile      = "payment.skey"
+	}
+
+
+### For Testnet.
+
+	$ cat testnet.mantis 
 	
 	Configuration {
 	  magic               = Just 1097911063
