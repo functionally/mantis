@@ -51,7 +51,7 @@ where `$NETWORK` is either `mainnet` or `testnet`.
 	  -h,--help                Show this help text
 
 
-### Show information about an address or transaction file
+### Show information about a transaction file or address
 
 	$ mantis info --help
 	
@@ -147,7 +147,7 @@ The `MINTING_FILE` must be a JSON-formatted object with keys equal to the asset 
 	}
 
 
-## Sample configuration file
+## Sample configuration files
 
 
 ### For Mainnet
