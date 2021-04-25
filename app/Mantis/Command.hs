@@ -58,7 +58,7 @@ main version =
           )
       versionOption =
         O.infoOption
-          ("Mantis " ++ showVersion version)
+          ("Mantis " ++ showVersion version ++ ", (c) 2021 Brian W Bush <code@functionally.io>")
           (O.long "version" <> O.help "Show version.")
       verboseOption =
         O.switch
