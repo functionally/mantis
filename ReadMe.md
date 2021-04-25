@@ -22,17 +22,20 @@ where `$NETWORK` is either `mainnet` or `testnet`.
 	
 	Mantis Cardano tool.
 	
-	Usage: mantis [--version] COMMAND
+	Usage: mantis [--version] [--quiet] COMMAND
 	  Utilities for Cardano scripts.
 	
 	Available options:
 	  -h,--help                Show this help text
 	  --version                Show version.
-          --quiet                  Minimal output.
+	  --quiet                  Minimal output.
 	
 	Available commands:
 	  fingerprint              Compute the Bech32 fingerprint of a token.
-	  info                     Print information about a transaction or address.
+	  info-address             Print information about addresses.
+	  info-tx                  Print contents of transaction files.
+	  info-txbody              Print contents of transaction body files.
+	  info-utxo                Print UTxO information for addresses.
 	  mint                     Mint batches of Cardano non-fungible tokens.
 	  script                   Construct a minting script and compute its Policy ID.
 	  transact                 Submit Cardano metadata or mint Cardano tokens.
@@ -53,17 +56,49 @@ where `$NETWORK` is either `mainnet` or `testnet`.
 
 ### Show information about a transaction file or address
 
-	$ mantis info --help
+
+#### Addresses
+	$ mantis info-address --help
+	Usage: mantis info-address [ADDRESS]
+	  Print information about addresses.
 	
-	Usage: mantis info CONFIG_FILE [--output ADDRESS] [--tx-body TXBODY_FILE] 
-	                   [--tx TX_FILE]
-	  Print information about a transaction or address.
+	Available options:
+	  ADDRESS                  Shelley address.
+	  -h,--help                Show this help text
+
+
+#### Transaction files
+
+	$ mantis info-tx --help
+	
+	Usage: mantis info-tx [TX_FILE]
+	  Print contents of transaction files.
+	
+	Available options:
+	  TX_FILE                  Signed transaction file.
+	  -h,--help                Show this help text
+
+
+#### Transaction body files
+
+	$ mantis info-txbody --help
+	Usage: mantis info-txbody [TXBODY_FILE]
+	  Print contents of transaction body files.
+	
+	Available options:
+	  TXBODY_FILE              Transaction body file.
+	  -h,--help                Show this help text
+
+
+#### UTxOs
+
+	$ mantis info-utxo --help
+	Usage: mantis info-utxo CONFIG_FILE [ADDRESS]
+	  Print UTxO information for addresses.
 	
 	Available options:
 	  CONFIG_FILE              Path to configuration file.
-	  --output ADDRESS         Address for output of transactions.
-	  --tx-body TXBODY_FILE    Transaction body file.
-	  --tx TX_FILE             Signed transaction file.
+	  ADDRESS                  Shelley address.
 	  -h,--help                Show this help text
 
 

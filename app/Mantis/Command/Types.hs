@@ -63,11 +63,21 @@ data Mantis =
       policyId  :: String
     , assetName :: String
     }
-  | Info
+  | InfoUtxo
     {
       configFile :: FilePath
-    , outputAddress :: Maybe String
-    , txBodyFile    :: Maybe FilePath
-    , txFile        :: Maybe FilePath
+    , addresses  :: [String]
+    }
+  | InfoAddress
+    {
+      addresses :: [String]
+    }
+  | InfoTxBody
+    {
+      txBodyFiles :: [FilePath]
+    }
+  | InfoTx
+    {
+      txFiles :: [FilePath]
     }
     deriving (Eq, Ord, Read, Show)

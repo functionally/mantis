@@ -1,7 +1,7 @@
 cabal-version: >= 1.10
 
 name        : mantis
-version     : 0.2.5.0
+version     : 0.2.6.0
 license     : MIT
 license-file: LICENSE
 author      : Brian W Bush

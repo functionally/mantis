@@ -72,7 +72,10 @@ main version =
           Mint{..}        -> Mint.main printer configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
           Script{..}      -> Script.main printer configFile tokenSlot scriptFile
           Fingerprint{..} -> Fingerprint.main printer policyId assetName 
-          Info{..}        -> Info.main printer configFile outputAddress txBodyFile txFile
+          InfoUtxo{..}    -> Info.mainUtxo printer configFile addresses
+          InfoAddress{..} -> Info.mainAddress printer addresses
+          InfoTxBody{..}  -> Info.mainTxBody printer txBodyFiles
+          InfoTx{..}      -> Info.mainTx printer txFiles
     case result of
       Right () -> return ()
       Left e -> hPutStrLn stderr e >> exitFailure
