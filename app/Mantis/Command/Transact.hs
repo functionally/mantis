@@ -93,7 +93,7 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
     debugMantis "Signing key . . . read successfuly."
 
     debugMantis ""
-    debugMantis "Unspect UTxO:"
+    debugMantis "Unspent UTxO:"
     utxo <- queryUTxO protocol address network
     printUTxO "  " utxo
 

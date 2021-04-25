@@ -32,6 +32,7 @@ where `$NETWORK` is either `mainnet` or `testnet`.
 	
 	Available commands:
 	  fingerprint              Compute the Bech32 fingerprint of a token.
+          info                     Print information about a transaction or address.
 	  mint                     Mint batches of Cardano non-fungible tokens.
 	  script                   Construct a minting script and compute its Policy ID.
 	  transact                 Submit Cardano metadata or mint Cardano tokens.
@@ -47,6 +48,22 @@ where `$NETWORK` is either `mainnet` or `testnet`.
 	Available options:
 	  POLICY_ID                Policy ID for the token.
 	  ASSET_NAME               Asset name for the token.
+	  -h,--help                Show this help text
+
+
+### Show information about an address or transaction file
+
+	$ mantis info --help
+	
+	Usage: mantis info CONFIG_FILE [--output ADDRESS] [--tx-body TXBODY_FILE] 
+	                   [--tx TX_FILE]
+	  Print information about a transaction or address.
+	
+	Available options:
+	  CONFIG_FILE              Path to configuration file.
+	  --output ADDRESS         Address for output of transactions.
+	  --tx-body TXBODY_FILE    Transaction body file.
+	  --tx TX_FILE             Signed transaction file.
 	  -h,--help                Show this help text
 
 

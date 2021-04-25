@@ -14,6 +14,7 @@ import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
 
 import qualified Mantis.Command.Fingerprint as Fingerprint
+import qualified Mantis.Command.Info        as Info
 import qualified Mantis.Command.Mint        as Mint
 import qualified Mantis.Command.Script      as Script
 import qualified Mantis.Command.Transact    as Transact
@@ -43,6 +44,7 @@ main version =
                   <$> verboseOption
                   <*> O.hsubparser (
                            Fingerprint.command
+                        <> Info.command
                         <> Mint.command
                         <> Script.command
                         <> Transact.command
@@ -70,6 +72,7 @@ main version =
           Mint{..}        -> Mint.main printer configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
           Script{..}      -> Script.main printer configFile tokenSlot scriptFile
           Fingerprint{..} -> Fingerprint.main printer policyId assetName 
+          Info{..}        -> Info.main printer configFile outputAddress txBodyFile txFile
     case result of
       Right () -> return ()
       Left e -> hPutStrLn stderr e >> exitFailure
