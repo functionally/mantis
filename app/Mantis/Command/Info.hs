@@ -4,16 +4,19 @@
 
 module Mantis.Command.Info (
   command
-, main
+, mainUtxo
+, mainAddress
+, mainTxBody
+, mainTx
 ) where
 
 
 import Cardano.Api (NetworkId(..), getTxId)
 import Cardano.Api.Protocol (Protocol(..))
 import Cardano.Api.Typed (AsType(AsTx, AsTxBody, AsMaryEra), NetworkMagic(..), getTxBody, readFileTextEnvelope)
-import Control.Monad.Extra (whenJust)
+import Control.Monad (forM_)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Mantis.Command.Types (Configuration(..), Mantis(Info))
+import Mantis.Command.Types (Configuration(..), Mantis(InfoAddress, InfoTx, InfoTxBody, InfoUtxo))
 import Mantis.Query (queryUTxO)
 import Mantis.Transaction (printUTxO)
 import Mantis.Types (MantisM, foistMantisEitherIO, printMantis)
@@ -25,39 +28,56 @@ import qualified Options.Applicative    as O
 
 command :: O.Mod O.CommandFields Mantis
 command =
-  O.command "info"
-    $ O.info options (O.progDesc "Print information about a transaction or address.")
+  mconcat
+    [
+      O.command "info-address" $ O.info
+         (
+           InfoAddress
+             <$> O.many (O.strArgument $ O.metavar "ADDRESS" <> O.help "Shelley address.")
+         )
+         (O.progDesc "Print information about addresses.")
+    , O.command "info-tx" $ O.info
+         (
+           InfoTx
+             <$>  O.many (O.strArgument $ O.metavar "TX_FILE" <> O.help "Signed transaction file.")
+         )
+         (O.progDesc "Print contents of transaction files.")
+    , O.command "info-txbody" $ O.info
+         (
+           InfoTxBody
+             <$> O.many (O.strArgument $ O.metavar "TXBODY_FILE" <> O.help "Transaction body file.")
+         )
+         (O.progDesc "Print contents of transaction body files.")
+    , O.command "info-utxo" $ O.info
+        (
+          InfoUtxo
+            <$>         O.strArgument ( O.metavar "CONFIG_FILE" <> O.help "Path to configuration file.")
+            <*> O.many (O.strArgument $ O.metavar "ADDRESS"     <> O.help "Shelley address."           )
+        )
+        (O.progDesc "Print UTxO information for addresses.")
+    ]
 
 
-options :: O.Parser Mantis
-options =
-  Info
-    <$>             O.strArgument (                     O.metavar "CONFIG_FILE" <> O.help "Path to configuration file."        )
-    <*> O.optional (O.strOption   $ O.long "output"  <> O.metavar "ADDRESS"     <> O.help "Address for output of transactions.")
-    <*> O.optional (O.strOption   $ O.long "tx-body" <> O.metavar "TXBODY_FILE" <> O.help "Transaction body file."             )
-    <*> O.optional (O.strOption   $ O.long "tx"      <> O.metavar "TX_FILE"     <> O.help "Signed transaction file."           )
-
-
-main :: MonadFail m
-     => MonadIO m
-     => (String -> MantisM m ())
-     -> FilePath
-     -> Maybe String
-     -> Maybe FilePath
-     -> Maybe FilePath
-     -> MantisM m ()
-main debugMantis configFile outputAddress txBodyFile txFile =
+mainUtxo :: MonadFail m
+         => MonadIO m
+         => (String -> MantisM m ())
+         -> FilePath
+         -> [String]
+         -> MantisM m ()
+mainUtxo debugMantis configFile addresses =
   do
     Configuration{..} <- liftIO $ read <$> readFile configFile
 
-    whenJust outputAddress
+    printMantis ""
+    let
+      protocol = CardanoProtocol $ Chain.EpochSlots epochSlots
+      network = maybe Mainnet (Testnet . NetworkMagic) magic
+    debugMantis $ "Network: " ++ show network
+
+    forM_ addresses
       $ \address ->
         do
           printMantis ""
-          let
-            protocol = CardanoProtocol $ Chain.EpochSlots epochSlots
-            network = maybe Mainnet (Testnet . NetworkMagic) magic
-          debugMantis $ "Network: " ++ show network
           address' <- readAddress address
           printMantis "Output Address: "
           printMantis $ "  " ++ show address
@@ -66,7 +86,28 @@ main debugMantis configFile outputAddress txBodyFile txFile =
           utxo <- queryUTxO protocol address' network
           printUTxO "  " utxo
 
-    whenJust txBodyFile
+
+mainAddress :: MonadIO m
+            => (String -> MantisM m ())
+            -> [String]
+            -> MantisM m ()
+mainAddress _ addresses =
+  forM_ addresses
+    $ \address ->
+      do
+        printMantis ""
+        address' <- readAddress address
+        printMantis "Output Address: "
+        printMantis $ "  " ++ show address
+        printMantis $ "  " ++ show address'
+
+
+mainTxBody :: MonadIO m
+           => (String -> MantisM m ())
+           -> [FilePath]
+           -> MantisM m ()
+mainTxBody _ txBodyFiles =
+  forM_ txBodyFiles
       $ \file ->
         do
           printMantis ""
@@ -77,7 +118,13 @@ main debugMantis configFile outputAddress txBodyFile txFile =
           printMantis . show $ getTxId txBody
           printMantis $ show txBody
 
-    whenJust txFile
+
+mainTx :: MonadIO m
+       => (String -> MantisM m ())
+       -> [FilePath]
+       -> MantisM m ()
+mainTx _ txFiles =
+  forM_ txFiles
       $ \file ->
         do
           printMantis ""
