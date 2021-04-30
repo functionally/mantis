@@ -13,6 +13,7 @@ import Mantis.Types (debugMantis, runMantisToIO)
 import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
 
+import qualified Mantis.Command.Bech32      as Bech32
 import qualified Mantis.Command.Fingerprint as Fingerprint
 import qualified Mantis.Command.Info        as Info
 import qualified Mantis.Command.Mint        as Mint
@@ -43,7 +44,8 @@ main version =
                       Command
                   <$> verboseOption
                   <*> O.hsubparser (
-                           Fingerprint.command
+                           Bech32.command
+                        <> Fingerprint.command
                         <> Info.command
                         <> Mint.command
                         <> Script.command
@@ -68,14 +70,16 @@ main version =
       printer = if quiet then const $ return () else debugMantis
     result <- runMantisToIO
       $ case mantis of
-          Transact{..}    -> Transact.main printer configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
-          Mint{..}        -> Mint.main printer configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
-          Script{..}      -> Script.main printer configFile tokenSlot scriptFile
-          Fingerprint{..} -> Fingerprint.main printer policyId assetName 
-          InfoUtxo{..}    -> Info.mainUtxo printer configFile addresses
-          InfoAddress{..} -> Info.mainAddress printer addresses
-          InfoTxBody{..}  -> Info.mainTxBody printer txBodyFiles
-          InfoTx{..}      -> Info.mainTx printer txFiles
+          Transact{..}     -> Transact.main printer configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
+          Mint{..}         -> Mint.main printer configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
+          Script{..}       -> Script.main printer configFile tokenSlot scriptFile
+          Fingerprint{..}  -> Fingerprint.main printer policyId assetName 
+          InfoUtxo{..}     -> Info.mainUtxo printer configFile addresses
+          InfoAddress{..}  -> Info.mainAddress printer addresses
+          InfoTxBody{..}   -> Info.mainTxBody printer txBodyFiles
+          InfoTx{..}       -> Info.mainTx printer txFiles
+          Bech32Decode{..} -> Bech32.mainDecode printer bech32
+          Bech32Encode{..} -> Bech32.mainEncode printer humanReadablePart dataPart
     case result of
       Right () -> return ()
       Left e -> hPutStrLn stderr e >> exitFailure

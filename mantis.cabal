@@ -1,7 +1,7 @@
 cabal-version: >= 1.10
 
 name        : mantis
-version     : 0.2.6.0
+version     : 0.2.7.0
 license     : MIT
 license-file: LICENSE
 author      : Brian W Bush
@@ -13,6 +13,7 @@ executable mantis
   main-is         : Main.hs
   other-modules   : Mantis.Asset
                     Mantis.Command
+                    Mantis.Command.Bech32
                     Mantis.Command.Fingerprint
                     Mantis.Command.Info
                     Mantis.Command.Mint

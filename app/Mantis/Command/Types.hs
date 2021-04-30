@@ -80,4 +80,13 @@ data Mantis =
     {
       txFiles :: [FilePath]
     }
+  | Bech32Decode
+    {
+      bech32 :: String
+    }
+  | Bech32Encode
+    {
+      humanReadablePart :: String
+    , dataPart          :: String
+    }
     deriving (Eq, Ord, Read, Show)
