@@ -31,6 +31,8 @@ where `$NETWORK` is either `mainnet` or `testnet`.
 	  --quiet                  Minimal output.
 	
 	Available commands:
+	  bech32-decode            Decode a Bech32 string.
+	  bech32-encode            Encode a Bech32 string.
 	  fingerprint              Compute the Bech32 fingerprint of a token.
 	  info-address             Print information about addresses.
 	  info-tx                  Print contents of transaction files.
@@ -39,6 +41,33 @@ where `$NETWORK` is either `mainnet` or `testnet`.
 	  mint                     Mint batches of Cardano non-fungible tokens.
 	  script                   Construct a minting script and compute its Policy ID.
 	  transact                 Submit Cardano metadata or mint Cardano tokens.
+
+
+### Encoding and decoding Bech32 text
+
+
+#### Encoding
+
+	$ mantis bech32-decode --help
+	
+	Usage: mantis bech32-decode BECH32
+	  Decode a Bech32 string.
+	
+	Available options:
+	  BECH32                   The Bech32 text.
+	  -h,--help                Show this help text
+
+#### Decoding
+
+	$ mantis bech32-encode --help
+	
+	Usage: mantis bech32-encode PREFIX DATA
+	  Encode a Bech32 string.
+	
+	Available options:
+	  PREFIX                   The human-readable part.
+	  DATA                     The data part.
+	  -h,--help                Show this help text
 
 
 ### Computing the Bech32 fingerprint of a token
@@ -58,6 +87,7 @@ where `$NETWORK` is either `mainnet` or `testnet`.
 
 
 #### Addresses
+
 	$ mantis info-address --help
 	Usage: mantis info-address [ADDRESS]
 	  Print information about addresses.
