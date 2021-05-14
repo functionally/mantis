@@ -53,7 +53,7 @@ main debugMantis configFile tokenSlot scriptFile =
     debugMantis ""
     debugMantis $ "Network: " ++ show network
 
-    tip <- queryTip protocol network
+    tip <- queryTip socketPath protocol network
     debugMantis ""
     debugMantis $ "Tip: " ++ show tip
     let

@@ -66,13 +66,13 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
     debugMantis ""
     debugMantis $ "Network: " ++ show network
 
-    tip <- queryTip protocol network
+    tip <- queryTip socketPath protocol network
     debugMantis ""
     debugMantis $ "Tip: " ++ show tip
     let
       before = (`adjustSlot` tip) <$> tokenSlot
 
-    pparams <- queryProtocol protocol network
+    pparams <- queryProtocol socketPath protocol network
     debugMantis ""
     debugMantis $ "Protocol parameters: " ++ LBS.unpack (encode pparams)
 
@@ -91,7 +91,7 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
 
     debugMantis ""
     debugMantis "Unspent UTxO:"
-    utxo@(UTxO utxo') <- queryUTxO protocol address network
+    utxo@(UTxO utxo') <- queryUTxO socketPath protocol address network
     printUTxO "  " utxo
 
     let
@@ -145,7 +145,7 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
         $ WitnessPaymentExtendedKey signingKey
       witness' = makeScriptWitness <$> script
       txSigned = makeSignedTransaction (witness : maybeToList witness') txRaw
-    result <- submitTransaction protocol network txSigned
+    result <- submitTransaction socketPath protocol network txSigned
     debugMantis ""
     case result of
       SubmitSuccess     -> printMantis $ "Success: " ++ show (getTxId txRaw)

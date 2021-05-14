@@ -15,25 +15,23 @@ import Cardano.Api (AddressAny, CardanoMode, ChainTip(..), ConsensusModeParams, 
 import Cardano.Api.Shelley (ProtocolParameters, QueryInShelleyBasedEra(..), UTxO)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Mantis.Command.Types (SlotRef(..))
-import Mantis.Types (MantisM, foistMantisExceptIO, foistMantisEither, foistMantisEitherIO)
+import Mantis.Types (MantisM, foistMantisEither, foistMantisEitherIO)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Type (SubmitResult)
 
-import qualified Cardano.CLI.Environment as CLI (readEnvSocketPath)
-import qualified Cardano.CLI.Types       as CLI (SocketPath(..))
-import qualified Data.Set                as S   (singleton)
+import qualified Data.Set as S (singleton)
 
 
 queryTip
   :: MonadFail m
   => MonadIO m
-  => ConsensusModeParams CardanoMode
+  => FilePath
+  -> ConsensusModeParams CardanoMode
   -> NetworkId
   -> MantisM m SlotNo
-queryTip mode network =
+queryTip socketPath mode network =
   do
-    CLI.SocketPath sockPath <- foistMantisExceptIO CLI.readEnvSocketPath
     let
-      localNodeConnInfo = LocalNodeConnectInfo mode network sockPath
+      localNodeConnInfo = LocalNodeConnectInfo mode network socketPath
     ChainTip slotNo _ _ <- liftIO $ getLocalChainTip localNodeConnInfo
     return slotNo
 
@@ -47,14 +45,14 @@ adjustSlot (RelativeSlot delta) (SlotNo slot) = SlotNo $ slot + fromIntegral del
 
 queryProtocol :: MonadFail m
               => MonadIO m
-              => ConsensusModeParams CardanoMode
+              => FilePath
+              -> ConsensusModeParams CardanoMode
               -> NetworkId
               -> MantisM m ProtocolParameters
-queryProtocol mode network =
+queryProtocol socketPath mode network =
   do
-    CLI.SocketPath sockPath <- foistMantisExceptIO CLI.readEnvSocketPath
     let
-      localNodeConnInfo = LocalNodeConnectInfo mode network sockPath
+      localNodeConnInfo = LocalNodeConnectInfo mode network socketPath
     pparams <-
       foistMantisEitherIO
         . queryNodeLocalState localNodeConnInfo Nothing
@@ -65,15 +63,15 @@ queryProtocol mode network =
 
 queryUTxO :: MonadFail m
           => MonadIO m
-          => ConsensusModeParams CardanoMode
+          => FilePath
+          -> ConsensusModeParams CardanoMode
           -> AddressAny
           -> NetworkId
           -> MantisM m (UTxO MaryEra)
-queryUTxO mode address network =
+queryUTxO socketPath mode address network =
   do
-    CLI.SocketPath sockPath <- foistMantisExceptIO CLI.readEnvSocketPath
     let
-      localNodeConnInfo = LocalNodeConnectInfo mode network sockPath
+      localNodeConnInfo = LocalNodeConnectInfo mode network socketPath
     utxo <-
       foistMantisEitherIO
         . queryNodeLocalState localNodeConnInfo Nothing
@@ -86,14 +84,14 @@ queryUTxO mode address network =
 
 
 submitTransaction :: MonadIO m
-                  => ConsensusModeParams CardanoMode
+                  => FilePath
+                  -> ConsensusModeParams CardanoMode
                   -> NetworkId
                   -> Tx MaryEra
                   -> MantisM m (SubmitResult (TxValidationErrorInMode CardanoMode))
-submitTransaction mode network tx =
+submitTransaction socketPath mode network tx =
   do
-    CLI.SocketPath sockPath <- foistMantisExceptIO CLI.readEnvSocketPath
     let
-      localNodeConnInfo = LocalNodeConnectInfo mode network sockPath
+      localNodeConnInfo = LocalNodeConnectInfo mode network socketPath
     liftIO $ submitTxToNodeLocal localNodeConnInfo
       $ TxInMode tx MaryEraInCardanoMode

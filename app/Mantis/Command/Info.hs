@@ -80,7 +80,7 @@ mainUtxo debugMantis configFile addresses =
           printMantis $ "  " ++ show address
           printMantis $ "  " ++ show address'
           printMantis "Unspent UTxO:"
-          utxo <- queryUTxO protocol address' network
+          utxo <- queryUTxO socketPath protocol address' network
           printUTxO "  " utxo
 
 

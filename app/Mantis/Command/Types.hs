@@ -23,7 +23,8 @@ instance Read SlotRef where
 data Configuration =
   Configuration
   {
-    magic               :: Maybe Word32
+    socketPath          :: FilePath
+  , magic               :: Maybe Word32
   , epochSlots          :: Word64
   , addressString       :: String
   , verificationKeyFile :: FilePath
