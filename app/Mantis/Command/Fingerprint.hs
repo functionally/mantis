@@ -11,7 +11,7 @@ import Mantis.Command.Types (Mantis(Fingerprint))
 import Mantis.Types (MantisM, printMantis)
 
 import qualified Options.Applicative as O
-import qualified Data.Text as T (unpack)
+import qualified Data.Text           as T (unpack)
 
 
 command :: O.Mod O.CommandFields Mantis

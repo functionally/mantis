@@ -1,7 +1,7 @@
 cabal-version: >= 1.10
 
 name        : mantis
-version     : 0.2.7.0
+version     : 0.2.8.0
 license     : MIT
 license-file: LICENSE
 author      : Brian W Bush
@@ -34,7 +34,6 @@ executable mantis
                   , bytestring
                   , cardano-api
                   , cardano-cli
-                  , cardano-ledger
                   , cardano-ledger-shelley-ma
                   , cardano-node
                   , containers

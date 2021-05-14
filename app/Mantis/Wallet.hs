@@ -10,7 +10,7 @@ module Mantis.Wallet (
 ) where
 
 
-import Cardano.Api.Typed (AddressAny, AsType(..), Hash, PaymentExtendedKey, PaymentKey, SigningKey, castVerificationKey, deserialiseAddress, verificationKeyHash)
+import Cardano.Api (AddressAny, AsType(..), Hash, PaymentExtendedKey, PaymentKey, SigningKey, castVerificationKey, deserialiseAddress, verificationKeyHash)
 import Control.Monad.IO.Class (MonadIO)
 import Mantis.Types (MantisM, foistMantisEitherIO, foistMantisExceptIO, foistMantisMaybe, throwMantis)
 

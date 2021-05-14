@@ -8,11 +8,8 @@ module Mantis.Command.Mint (
 ) where
 
 
-import Cardano.Api (NetworkId(..), getTxId)
-import Cardano.Api.Protocol (Protocol(..))
-import Cardano.Api.Eras (CardanoEra(MaryEra))
-import Cardano.Api.Shelley (ShelleyWitnessSigningKey(..), TxOut(..), fromMaryValue, TxOutValue(..), makeScriptWitness, makeSignedTransaction, makeShelleyKeyWitness)
-import Cardano.Api.Typed (NetworkMagic(..), PolicyId(..), anyAddressInEra, makeTransactionBody)
+import Cardano.Api (ConsensusModeParams(CardanoModeParams), CardanoEra(MaryEra), EpochSlots(..), NetworkId(..), NetworkMagic(..), PolicyId(..), anyAddressInEra, getTxId, makeTransactionBody)
+import Cardano.Api.Shelley (ShelleyWitnessSigningKey(..), TxOut(..), TxOutValue(..), UTxO(..), makeScriptWitness, makeSignedTransaction, makeShelleyKeyWitness)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Extra (whenJust)
 import Data.Aeson (encode)
@@ -21,13 +18,13 @@ import Data.Maybe (fromMaybe)
 import Mantis.Command.Types (Configuration(..), Mantis(..), SlotRef)
 import Mantis.Query (adjustSlot, queryProtocol, queryTip, queryUTxO, submitTransaction)
 import Mantis.Script (mintingScript)
-import Mantis.Transaction (fromShelleyUTxO, includeFee, makeTransaction, printUTxO, printValue, readMinting, summarizeValues, supportedMultiAsset)
+import Mantis.Transaction (includeFee, makeTransaction, printUTxO, printValue, readMinting, summarizeValues, supportedMultiAsset)
 import Mantis.Types (MantisM, foistMantisEither, printMantis)
 import Mantis.Wallet (makeVerificationKeyHash, readAddress, readSigningKey, readVerificationKey)
+import Ouroboros.Network.Protocol.LocalTxSubmission.Type (SubmitResult(..))
 
-import qualified Cardano.Chain.Slotting     as Chain (EpochSlots(..))
-import qualified Data.ByteString.Lazy.Char8 as LBS   (unpack, writeFile)
-import qualified Data.Map.Strict            as M     (keys)
+import qualified Data.ByteString.Lazy.Char8 as LBS (unpack, writeFile)
+import qualified Data.Map.Strict            as M   (keys)
 import qualified Options.Applicative        as O
 
 
@@ -63,7 +60,7 @@ main debugMantis configFile mintingFile tokenSlot outputAddress scriptFile metad
     Configuration{..} <- liftIO $ read <$> readFile configFile
 
     let
-      protocol = CardanoProtocol $ Chain.EpochSlots epochSlots
+      protocol = CardanoModeParams $ EpochSlots epochSlots
       network = maybe Mainnet (Testnet . NetworkMagic) magic
     debugMantis ""
     debugMantis $ "Network: " ++ show network
@@ -93,7 +90,7 @@ main debugMantis configFile mintingFile tokenSlot outputAddress scriptFile metad
 
     debugMantis ""
     debugMantis "Unspect UTxO:"
-    utxo <- queryUTxO protocol address network
+    utxo@(UTxO utxo') <- queryUTxO protocol address network
     printUTxO "  " utxo
 
     let
@@ -113,7 +110,7 @@ main debugMantis configFile mintingFile tokenSlot outputAddress scriptFile metad
 
     (json, metadata, minting) <- readMinting (PolicyId scriptHash) mintingFile
     let
-      value' = fromMaryValue value <> minting
+      value' = value <> minting
     debugMantis ""
     debugMantis "Metadata . . . read and parsed."
     liftIO
@@ -126,7 +123,7 @@ main debugMantis configFile mintingFile tokenSlot outputAddress scriptFile metad
       Just address'' = anyAddressInEra MaryEra address'
     txBody <- includeFee network pparams nIn 1 1 0
       $ makeTransaction 
-        (M.keys $ fromShelleyUTxO utxo)
+        (M.keys utxo')
         [TxOut address'' (TxOutValue supportedMultiAsset value')]
         before
         (Just metadata)
@@ -143,5 +140,6 @@ main debugMantis configFile mintingFile tokenSlot outputAddress scriptFile metad
       txSigned = makeSignedTransaction [witness, witness'] txRaw
     result <- submitTransaction protocol network txSigned
     printMantis ""
-    printMantis $ "Result: " ++ show result
-    printMantis $ "TxID: " ++ show (getTxId txRaw)
+    case result of
+      SubmitSuccess     -> printMantis $ "Success: " ++ show (getTxId txRaw)
+      SubmitFail reason -> printMantis $ "Failure: " ++ show reason

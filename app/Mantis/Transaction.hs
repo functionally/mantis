@@ -8,7 +8,6 @@
 module Mantis.Transaction (
   makeTransaction
 , includeFee
-, fromShelleyUTxO
 , supportedMultiAsset
 , readMetadata
 , printUTxO
@@ -19,25 +18,17 @@ module Mantis.Transaction (
 ) where
 
 
-import Cardano.Api.Shelley (TxBodyContent(..), TxId(..), TxIn(..), TxOut(..), TxOutValue(..), fromMaryValue, fromShelleyAddr)
-import Cardano.Api.Eras (CardanoEra(..), MaryEra, ShelleyLedgerEra)
-import Cardano.Api.Typed (AssetId(..), AssetName(..), AuxScriptsSupportedInEra(..), MultiAssetSupportedInEra(..), Hash, NetworkId, PaymentKey, PolicyId(..), Quantity(..), ScriptInEra, SlotNo(..), TxAuxScripts(..), TxCertificates(..), TxFee(..), TxFeesExplicitInEra(..), TxMetadata, TxMetadataInEra(..), TxMetadataSupportedInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), ValidityNoUpperBoundSupportedInEra(..), ValidityUpperBoundSupportedInEra(..), Value, auxScriptsSupportedInEra, estimateTransactionFee, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, serialiseToRawBytesHex, txFeesExplicitInEra, validityNoUpperBoundSupportedInEra, validityUpperBoundSupportedInEra, valueFromList)
+import Cardano.Api (AssetId(..), AssetName(..), AuxScriptsSupportedInEra(..), CardanoEra(..), MultiAssetSupportedInEra(..), Hash, MaryEra, NetworkId, PaymentKey, PolicyId(..), Quantity(..), ScriptInEra, SlotNo(..), TxAuxScripts(..), TxCertificates(..), TxFee(..), TxFeesExplicitInEra(..), TxMetadata, TxMetadataInEra(..), TxMetadataSupportedInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), ValidityNoUpperBoundSupportedInEra(..), ValidityUpperBoundSupportedInEra(..), Value, auxScriptsSupportedInEra, estimateTransactionFee, filterValue, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, selectLovelace, serialiseToRawBytesHex, txFeesExplicitInEra, validityNoUpperBoundSupportedInEra, validityUpperBoundSupportedInEra, valueFromList, valueToList)
+import Cardano.Api.Shelley (ProtocolParameters, TxBodyContent(..), TxId(..), TxIn(..), TxOut(..), TxOutValue(..), UTxO(..), protocolParamTxFeeFixed, protocolParamTxFeePerByte)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Mantis.Script (mintingScript)
 import Mantis.Types (MantisM, foistMantisEither, foistMantisMaybeIO)
 
-import qualified Cardano.Ledger.Mary.Value            as Mary      (AssetName(..), PolicyID(..), Value(..))
-import qualified Data.Aeson                           as A         (Value(..), decodeFileStrict)
-import qualified Data.ByteString.Char8                as BS        (pack, unpack)
-import qualified Data.HashMap.Strict                  as H         (keys, singleton)
-import qualified Data.Map.Strict                      as M         (Map, assocs, fromList)
-import qualified Data.Text                            as T         (pack, unpack)
-import qualified Ouroboros.Consensus.Shelley.Eras     as Ouroboros (StandardMary)
-import qualified Shelley.Spec.Ledger.PParams          as Shelley   (PParams)
-import qualified Shelley.Spec.Ledger.API              as Shelley   (PParams'(..), ScriptHash(..))
-import qualified Shelley.Spec.Ledger.TxBody           as Shelley   (TxId(..), TxIn(..), TxOut(..))
-import qualified Shelley.Spec.Ledger.UTxO             as Shelley   (UTxO(..))
-import qualified Ouroboros.Consensus.Shelley.Protocol as Ouroboros (StandardCrypto)
+import qualified Data.Aeson            as A  (Value(..), decodeFileStrict)
+import qualified Data.ByteString.Char8 as BS (pack, unpack)
+import qualified Data.HashMap.Strict   as H  (keys, singleton)
+import qualified Data.Map.Strict       as M  (assocs)
+import qualified Data.Text             as T  (pack, unpack)
 
 
 supportedNoUpperBound :: ValidityNoUpperBoundSupportedInEra MaryEra
@@ -90,7 +81,7 @@ makeTransaction txIns txOuts before metadata script minting =
 includeFee :: MonadFail m
            => MonadIO m
            => NetworkId
-           -> Shelley.PParams (ShelleyLedgerEra MaryEra)
+           -> ProtocolParameters
            -> Int
            -> Int
            -> Int
@@ -104,8 +95,8 @@ includeFee network pparams nIn nOut nShelley nByron content =
       tx = makeSignedTransaction [] body
       lovelace = estimateTransactionFee
         network
-        (Shelley._minfeeB pparams)
-        (Shelley._minfeeA pparams)
+        (protocolParamTxFeeFixed   pparams)
+        (protocolParamTxFeePerByte pparams)
         tx
         nIn nOut nShelley nByron
     [TxOut addr (TxOutValue s value)] <- return $ txOuts content
@@ -117,20 +108,6 @@ includeFee network pparams nIn nOut nShelley nByron content =
           txFee  = TxFeeExplicit explicitFees lovelace
         , txOuts = [TxOut addr (TxOutValue s $ value <> fee)]
         }
-
-
-fromShelleyUTxO :: Shelley.UTxO Ouroboros.StandardMary
-                -> M.Map TxIn (TxOut MaryEra)
-fromShelleyUTxO (Shelley.UTxO utxoMap) =
-  M.fromList
-    [
-      (
-        TxIn (TxId txhash) (toEnum . fromEnum $ txin)
-      , TxOut (fromShelleyAddr addr) (TxOutValue supportedMultiAsset $ fromMaryValue value)
-      )
-    |
-      (Shelley.TxIn (Shelley.TxId txhash) txin, Shelley.TxOut addr value) <- M.assocs utxoMap
-    ] 
 
 
 readMetadata' :: MonadIO m
@@ -155,9 +132,9 @@ readMetadata = fmap snd . readMetadata'
 
 printUTxO :: MonadIO m
           => String
-          -> Shelley.UTxO Ouroboros.StandardMary
+          -> UTxO MaryEra
           -> MantisM m ()
-printUTxO indent (Shelley.UTxO utxoMap) =
+printUTxO indent (UTxO utxoMap) =
   sequence_
     [
       do
@@ -166,24 +143,23 @@ printUTxO indent (Shelley.UTxO utxoMap) =
           $ indent ++ "Transaction: " ++ show' txhash  ++ "#" ++ show txin
         printValue (indent ++ "  ") value'
     |
-      (Shelley.TxIn (Shelley.TxId txhash) txin, Shelley.TxOut _ value') <- M.assocs utxoMap
+      (TxIn (TxId txhash) txin, TxOut _ (TxOutValue _ value')) <- M.assocs utxoMap
     ]
 
 
 printValue :: MonadIO m
            => String
-           -> Mary.Value era
+           -> Value
            -> MantisM m ()
-printValue indent (Mary.Value lovelace policies) =
+printValue indent value =
   liftIO
     $ do
-      putStrLn $ indent ++ show lovelace ++ " Lovelace"
+      putStrLn $ indent ++ show (selectLovelace value) ++ " Lovelace"
       sequence_
         [
           putStrLn $ indent ++ show quantity ++ "  " ++ show' policy ++ "." ++ show' asset
         |
-          (Mary.PolicyID (Shelley.ScriptHash policy), assets) <- M.assocs policies
-        , (Mary.AssetName asset, quantity) <- M.assocs assets
+          (AssetId (PolicyId policy) (AssetName asset), quantity) <- valueToList $ filterValue (/= AdaAssetId) value
         ]
 
 
@@ -191,22 +167,22 @@ show' :: Show a => a -> String
 show' = init . tail . show
 
 
-summarizeValues :: Shelley.UTxO Ouroboros.StandardMary
-                -> (Int, Mary.Value Ouroboros.StandardCrypto)
-summarizeValues (Shelley.UTxO utxoMap) =
+summarizeValues :: UTxO MaryEra
+                -> (Int, Value)
+summarizeValues (UTxO utxoMap) =
   let
     values =  
       [
         value'
       |
-        (_, Shelley.TxOut _ value') <- M.assocs utxoMap
+        (_, TxOut _ (TxOutValue _ value')) <- M.assocs utxoMap
       ]
   in
     (length values, mconcat values)
 
 
 
-makeMinting :: Mary.Value Ouroboros.StandardCrypto
+makeMinting :: Value
             -> String
             -> Integer
             -> Hash PaymentKey
@@ -224,7 +200,7 @@ makeMinting value name count verification before =
     (
       script
     , minting
-    , fromMaryValue value <> minting
+    , value <> minting
     )
 
 

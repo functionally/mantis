@@ -11,44 +11,31 @@ module Mantis.Query (
 ) where
 
 
-import Cardano.Api.Eras (CardanoEra(..), InAnyCardanoEra(..), MaryEra, ShelleyLedgerEra)
-import Cardano.Api.LocalChainSync (getLocalTip)
-import Cardano.Api.Protocol (Protocol, withlocalNodeConnectInfo)
-import Cardano.Api.Shelley (anyAddressInShelleyBasedEra, toShelleyAddr)
-import Cardano.Api.TxSubmit (TxForMode(..), TxSubmitResultForMode, submitTx)
-import Cardano.Api.Typed (AddressAny, AddressInEra(..), CardanoMode, LocalNodeConnectInfo(..), NetworkId, NodeConsensusMode(..), SlotNo(..), Tx, queryNodeLocalState)
+import Cardano.Api (AddressAny, CardanoMode, ChainTip(..), ConsensusModeParams, EraInMode(MaryEraInCardanoMode), LocalNodeConnectInfo(..), MaryEra, NetworkId, QueryInEra(QueryInShelleyBasedEra), QueryInMode(..), ShelleyBasedEra(ShelleyBasedEraMary), SlotNo(..), Tx, TxInMode(..), TxValidationErrorInMode, getLocalChainTip, queryNodeLocalState, submitTxToNodeLocal)
+import Cardano.Api.Shelley (ProtocolParameters, QueryInShelleyBasedEra(..), UTxO)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Mantis.Command.Types (SlotRef(..))
-import Mantis.Types (MantisM, foistMantisExceptIO, foistMantisEitherIO)
+import Mantis.Types (MantisM, foistMantisExceptIO, foistMantisEither, foistMantisEitherIO)
+import Ouroboros.Network.Protocol.LocalTxSubmission.Type (SubmitResult)
 
-import qualified Cardano.CLI.Environment            as CLI       (readEnvSocketPath)
-import qualified Cardano.CLI.Types                  as CLI       (SocketPath(..))
-import qualified Data.Set                           as S         (singleton)
-import qualified Ouroboros.Consensus.Cardano.Block  as Ouroboros (Either (..), Query (..))
-import qualified Ouroboros.Consensus.Shelley.Ledger as Ouroboros (Query(..))
-import qualified Ouroboros.Network.Block            as Ouroboros (getTipPoint, getTipSlotNo)
-import qualified Ouroboros.Network.Point            as Ouroboros (WithOrigin(At))
-import qualified Shelley.Spec.Ledger.PParams        as Shelley   (PParams)
-import qualified Shelley.Spec.Ledger.UTxO           as Shelley   (UTxO (..))
+import qualified Cardano.CLI.Environment as CLI (readEnvSocketPath)
+import qualified Cardano.CLI.Types       as CLI (SocketPath(..))
+import qualified Data.Set                as S   (singleton)
 
 
 queryTip
   :: MonadFail m
   => MonadIO m
-  => Protocol
+  => ConsensusModeParams CardanoMode
   -> NetworkId
   -> MantisM m SlotNo
-queryTip protocol network =
+queryTip mode network =
   do
     CLI.SocketPath sockPath <- foistMantisExceptIO CLI.readEnvSocketPath
-    withlocalNodeConnectInfo protocol network sockPath
-      $ \connectInfo ->
-        do
-          Ouroboros.At slotNo <-
-            liftIO
-              $ Ouroboros.getTipSlotNo
-              <$> getLocalTip connectInfo
-          return slotNo
+    let
+      localNodeConnInfo = LocalNodeConnectInfo mode network sockPath
+    ChainTip slotNo _ _ <- liftIO $ getLocalChainTip localNodeConnInfo
+    return slotNo
 
 
 adjustSlot :: SlotRef
@@ -60,62 +47,53 @@ adjustSlot (RelativeSlot delta) (SlotNo slot) = SlotNo $ slot + fromIntegral del
 
 queryProtocol :: MonadFail m
               => MonadIO m
-              => Protocol
+              => ConsensusModeParams CardanoMode
               -> NetworkId
-              -> MantisM m (Shelley.PParams (ShelleyLedgerEra MaryEra))
-queryProtocol protocol network =
+              -> MantisM m ProtocolParameters
+queryProtocol mode network =
   do
     CLI.SocketPath sockPath <- foistMantisExceptIO CLI.readEnvSocketPath
-    withlocalNodeConnectInfo protocol network sockPath
-      $ \connectInfo@LocalNodeConnectInfo{localNodeConsensusMode = CardanoMode{}} ->
-        do
-          tip <- liftIO $ getLocalTip connectInfo
-          Ouroboros.QueryResultSuccess pparams <- foistMantisEitherIO
-            $ queryNodeLocalState connectInfo
-              (
-                Ouroboros.getTipPoint tip
-              , Ouroboros.QueryIfCurrentMary Ouroboros.GetCurrentPParams
-              )
-          return pparams
+    let
+      localNodeConnInfo = LocalNodeConnectInfo mode network sockPath
+    pparams <-
+      foistMantisEitherIO
+        . queryNodeLocalState localNodeConnInfo Nothing
+        . QueryInEra MaryEraInCardanoMode
+        $ QueryInShelleyBasedEra ShelleyBasedEraMary QueryProtocolParameters
+    foistMantisEither pparams
 
 
 queryUTxO :: MonadFail m
           => MonadIO m
-          => Protocol
+          => ConsensusModeParams CardanoMode
           -> AddressAny
           -> NetworkId
-          -> MantisM m (Shelley.UTxO (ShelleyLedgerEra MaryEra))
-queryUTxO protocol address network =
+          -> MantisM m (UTxO MaryEra)
+queryUTxO mode address network =
   do
-    let
-      address' = toShelleyAddr
-        . (anyAddressInShelleyBasedEra :: AddressAny -> AddressInEra MaryEra)
-        $ address
     CLI.SocketPath sockPath <- foistMantisExceptIO CLI.readEnvSocketPath
-    withlocalNodeConnectInfo protocol network sockPath
-      $ \connectInfo@LocalNodeConnectInfo{localNodeConsensusMode = CardanoMode{}} ->
-        do
-          tip <- liftIO $  getLocalTip connectInfo
-          Ouroboros.QueryResultSuccess utxo <- foistMantisEitherIO
-            $ queryNodeLocalState connectInfo
-              (
-                Ouroboros.getTipPoint tip
-              , Ouroboros.QueryIfCurrentMary (Ouroboros.GetFilteredUTxO (S.singleton address'))
-              )
-          return utxo
+    let
+      localNodeConnInfo = LocalNodeConnectInfo mode network sockPath
+    utxo <-
+      foistMantisEitherIO
+        . queryNodeLocalState localNodeConnInfo Nothing
+        . QueryInEra MaryEraInCardanoMode
+        . QueryInShelleyBasedEra ShelleyBasedEraMary
+        . QueryUTxO
+        . Just
+        $ S.singleton address
+    foistMantisEither utxo
 
 
 submitTransaction :: MonadIO m
-                  => Protocol
+                  => ConsensusModeParams CardanoMode
                   -> NetworkId
                   -> Tx MaryEra
-                  -> MantisM m (TxSubmitResultForMode CardanoMode)
-submitTransaction protocol network tx =
+                  -> MantisM m (SubmitResult (TxValidationErrorInMode CardanoMode))
+submitTransaction mode network tx =
   do
     CLI.SocketPath sockPath <- foistMantisExceptIO CLI.readEnvSocketPath
-    withlocalNodeConnectInfo protocol network sockPath
-      $ \connectInfo@LocalNodeConnectInfo{localNodeConsensusMode = CardanoMode{}} ->
-        liftIO
-          . submitTx connectInfo
-          . TxForCardanoMode 
-          $ InAnyCardanoEra MaryEra tx
+    let
+      localNodeConnInfo = LocalNodeConnectInfo mode network sockPath
+    liftIO $ submitTxToNodeLocal localNodeConnInfo
+      $ TxInMode tx MaryEraInCardanoMode

@@ -8,9 +8,7 @@ module Mantis.Command.Script (
 ) where
 
 
-import Cardano.Api (NetworkId(..))
-import Cardano.Api.Protocol (Protocol(..))
-import Cardano.Api.Typed (NetworkMagic(..))
+import Cardano.Api (ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..))
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Extra (whenJust)
 import Data.Aeson.Encode.Pretty (encodePretty)
@@ -20,9 +18,8 @@ import Mantis.Script (mintingScript)
 import Mantis.Types (MantisM)
 import Mantis.Wallet (makeVerificationKeyHash, readVerificationKey)
 
-import qualified Cardano.Chain.Slotting as Chain (EpochSlots(..))
-import qualified Data.ByteString.Lazy   as LBS   (writeFile)
-import qualified Options.Applicative    as O
+import qualified Data.ByteString.Lazy as LBS   (writeFile)
+import qualified Options.Applicative  as O
 
 
 command :: O.Mod O.CommandFields Mantis
@@ -51,7 +48,7 @@ main debugMantis configFile tokenSlot scriptFile =
     Configuration{..} <- liftIO $ read <$> readFile configFile
 
     let
-      protocol = CardanoProtocol $ Chain.EpochSlots epochSlots
+      protocol = CardanoModeParams $ EpochSlots epochSlots
       network = maybe Mainnet (Testnet . NetworkMagic) magic
     debugMantis ""
     debugMantis $ "Network: " ++ show network
