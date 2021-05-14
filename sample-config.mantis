@@ -1,5 +1,5 @@
 Configuration {
-  socketPath          = "/home/cardano/.local/share/Daedalus/testnet/cardano-node.socket"
+  socketPath          = "testnet.socket"
 , magic               = Just 1097911063
 , epochSlots          = 21600
 , addressString       = "addr_test1qq9prvx8ufwutkwxx9cmmuuajaqmjqwujqlp9d8pvg6gupcvluken35ncjnu0puetf5jvttedkze02d5kf890kquh60slacjyp"

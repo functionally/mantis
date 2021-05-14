@@ -74,11 +74,11 @@ mainUtxo debugMantis configFile addresses =
     forM_ addresses
       $ \address ->
         do
-          printMantis ""
+          debugMantis ""
           address' <- readAddress address
-          printMantis "Output Address: "
-          printMantis $ "  " ++ show address
-          printMantis $ "  " ++ show address'
+          debugMantis "Output Address: "
+          debugMantis $ "  " ++ show address
+          debugMantis $ "  " ++ show address'
           printMantis "Unspent UTxO:"
           utxo <- queryUTxO socketPath protocol address' network
           printUTxO "  " utxo
