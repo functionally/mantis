@@ -14,6 +14,7 @@ import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
 
 import qualified Mantis.Command.Bech32      as Bech32
+import qualified Mantis.Command.Chain       as Chain
 import qualified Mantis.Command.Fingerprint as Fingerprint
 import qualified Mantis.Command.Info        as Info
 import qualified Mantis.Command.Mint        as Mint
@@ -45,6 +46,7 @@ main version =
                   <$> verboseOption
                   <*> O.hsubparser (
                            Bech32.command
+                        <> Chain.command
                         <> Fingerprint.command
                         <> Info.command
                         <> Mint.command
@@ -67,7 +69,8 @@ main version =
           (O.long "quiet" <> O.help "Minimal output.")
     Command{..} <- O.execParser parser
     let
-      printer = if quiet then const $ return () else debugMantis
+      printer  = if quiet then const $ return () else debugMantis
+      printer' = if quiet then const $ return () else hPutStrLn stderr
     result <- runMantisToIO
       $ case mantis of
           Transact{..}     -> Transact.main printer configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
@@ -80,6 +83,7 @@ main version =
           InfoTx{..}       -> Info.mainTx printer txFiles
           Bech32Decode{..} -> Bech32.mainDecode printer bech32
           Bech32Encode{..} -> Bech32.mainEncode printer humanReadablePart dataPart
+          Chain{..}        -> Chain.main printer' configFile outputDirectory
     case result of
       Right () -> return ()
       Left e   -> hPutStrLn stderr e >> exitFailure
