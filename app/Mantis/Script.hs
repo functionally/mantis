@@ -4,8 +4,7 @@ module Mantis.Script (
 ) where
 
 
-import Cardano.Api.Eras (MaryEra)
-import Cardano.Api.Typed (Hash, PaymentKey, SimpleScript(..), Script(..), ScriptHash, ScriptInEra(..), ScriptLanguageInEra(..), SimpleScript(..), SimpleScriptVersion(..), SlotNo, TimeLocksSupported(..), hashScript)
+import Cardano.Api (Hash, MaryEra, PaymentKey, SimpleScript(..), Script(..), ScriptHash, ScriptInEra(..), ScriptLanguageInEra(..), SimpleScript(..), SimpleScriptVersion(..), SlotNo, TimeLocksSupported(..), hashScript)
 
 
 mintingScript :: Hash PaymentKey

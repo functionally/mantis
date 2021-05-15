@@ -82,4 +82,4 @@ main version =
           Bech32Encode{..} -> Bech32.mainEncode printer humanReadablePart dataPart
     case result of
       Right () -> return ()
-      Left e -> hPutStrLn stderr e >> exitFailure
+      Left e   -> hPutStrLn stderr e >> exitFailure

@@ -8,11 +8,8 @@ module Mantis.Command.Transact (
 ) where
 
 
-import Cardano.Api (NetworkId(..), getTxId)
-import Cardano.Api.Protocol (Protocol(..))
-import Cardano.Api.Eras (CardanoEra(MaryEra))
-import Cardano.Api.Shelley (ShelleyWitnessSigningKey(..), TxOut(..), fromMaryValue, TxOutValue(..), makeScriptWitness, makeSignedTransaction, makeShelleyKeyWitness)
-import Cardano.Api.Typed (NetworkMagic(..), anyAddressInEra, makeTransactionBody)
+import Cardano.Api (CardanoEra(MaryEra), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), anyAddressInEra, getTxId, makeTransactionBody)
+import Cardano.Api.Shelley (ShelleyWitnessSigningKey(..), TxOut(..), TxOutValue(..), UTxO(..), makeScriptWitness, makeSignedTransaction, makeShelleyKeyWitness)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Extra (whenJust)
 import Data.Aeson (encode)
@@ -20,13 +17,13 @@ import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.Maybe (fromMaybe, maybeToList)
 import Mantis.Command.Types (Configuration(..), Mantis(..), SlotRef)
 import Mantis.Query (adjustSlot, queryProtocol, queryTip, queryUTxO, submitTransaction)
-import Mantis.Transaction (fromShelleyUTxO, includeFee, makeMinting, makeTransaction, printUTxO, printValue, readMetadata, summarizeValues, supportedMultiAsset)
+import Mantis.Transaction (includeFee, makeMinting, makeTransaction, printUTxO, printValue, readMetadata, summarizeValues, supportedMultiAsset)
 import Mantis.Types (MantisM, foistMantisEither, printMantis)
 import Mantis.Wallet (makeVerificationKeyHash, readAddress, readSigningKey, readVerificationKey)
+import Ouroboros.Network.Protocol.LocalTxSubmission.Type (SubmitResult(..))
 
-import qualified Cardano.Chain.Slotting     as Chain (EpochSlots(..))
-import qualified Data.ByteString.Lazy.Char8 as LBS   (unpack, writeFile)
-import qualified Data.Map.Strict            as M     (keys)
+import qualified Data.ByteString.Lazy.Char8 as LBS (unpack, writeFile)
+import qualified Data.Map.Strict            as M   (keys)
 import qualified Options.Applicative        as O
 
 
@@ -64,18 +61,18 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
     Configuration{..} <- liftIO $ read <$> readFile configFile
 
     let
-      protocol = CardanoProtocol $ Chain.EpochSlots epochSlots
+      protocol = CardanoModeParams $ EpochSlots epochSlots
       network = maybe Mainnet (Testnet . NetworkMagic) magic
     debugMantis ""
     debugMantis $ "Network: " ++ show network
 
-    tip <- queryTip protocol network
+    tip <- queryTip socketPath protocol network
     debugMantis ""
     debugMantis $ "Tip: " ++ show tip
     let
       before = (`adjustSlot` tip) <$> tokenSlot
 
-    pparams <- queryProtocol protocol network
+    pparams <- queryProtocol socketPath protocol network
     debugMantis ""
     debugMantis $ "Protocol parameters: " ++ LBS.unpack (encode pparams)
 
@@ -86,7 +83,8 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
     debugMantis $ "Output Address: " ++ fromMaybe addressString outputAddress
 
     verificationKey <- readVerificationKey verificationKeyFile
-    verificationKeyHash <- makeVerificationKeyHash verificationKey
+    let
+      verificationKeyHash = makeVerificationKeyHash verificationKey
     signingKey <- readSigningKey signingKeyFile
     debugMantis ""
     debugMantis $ "Verification key hash: " ++ show verificationKeyHash
@@ -94,7 +92,7 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
 
     debugMantis ""
     debugMantis "Unspent UTxO:"
-    utxo <- queryUTxO protocol address network
+    utxo@(UTxO utxo') <- queryUTxO socketPath protocol address network
     printUTxO "  " utxo
 
     let
@@ -110,7 +108,7 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
     let
       (script, minting, value') =
         case tokenName of
-          Nothing   -> (Nothing, Nothing, fromMaryValue value)
+          Nothing   -> (Nothing, Nothing, value)
           Just name -> let
                          (script', minting', value'') = makeMinting
                                                           value
@@ -133,7 +131,7 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
       Just address'' = anyAddressInEra MaryEra address'
     txBody <- includeFee network pparams nIn 1 1 0
       $ makeTransaction 
-        (M.keys $ fromShelleyUTxO utxo)
+        (M.keys utxo')
         [TxOut address'' (TxOutValue supportedMultiAsset value')]
         before
         metadata
@@ -148,8 +146,8 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
         $ WitnessPaymentExtendedKey signingKey
       witness' = makeScriptWitness <$> script
       txSigned = makeSignedTransaction (witness : maybeToList witness') txRaw
-    result <- submitTransaction protocol network txSigned
+    result <- submitTransaction socketPath protocol network txSigned
     debugMantis ""
-    printMantis $ "Result: " ++ show result
-    printMantis $ "TxID: " ++ show (getTxId txRaw)
-
+    case result of
+      SubmitSuccess     -> printMantis $ "Success: " ++ show (getTxId txRaw)
+      SubmitFail reason -> printMantis $ "Failure: " ++ show reason

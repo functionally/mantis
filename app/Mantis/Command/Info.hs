@@ -11,9 +11,7 @@ module Mantis.Command.Info (
 ) where
 
 
-import Cardano.Api (NetworkId(..), getTxId)
-import Cardano.Api.Protocol (Protocol(..))
-import Cardano.Api.Typed (AsType(AsTx, AsTxBody, AsMaryEra), NetworkMagic(..), getTxBody, readFileTextEnvelope)
+import Cardano.Api (AsType(AsTx, AsTxBody, AsMaryEra), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), getTxBody, getTxId, readFileTextEnvelope)
 import Control.Monad (forM_)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Mantis.Command.Types (Configuration(..), Mantis(InfoAddress, InfoTx, InfoTxBody, InfoUtxo))
@@ -22,8 +20,7 @@ import Mantis.Transaction (printUTxO)
 import Mantis.Types (MantisM, foistMantisEitherIO, printMantis)
 import Mantis.Wallet (readAddress)
 
-import qualified Cardano.Chain.Slotting as Chain (EpochSlots(..))
-import qualified Options.Applicative    as O
+import qualified Options.Applicative as O
 
 
 command :: O.Mod O.CommandFields Mantis
@@ -70,20 +67,20 @@ mainUtxo debugMantis configFile addresses =
 
     printMantis ""
     let
-      protocol = CardanoProtocol $ Chain.EpochSlots epochSlots
+      protocol = CardanoModeParams $ EpochSlots epochSlots
       network = maybe Mainnet (Testnet . NetworkMagic) magic
     debugMantis $ "Network: " ++ show network
 
     forM_ addresses
       $ \address ->
         do
-          printMantis ""
+          debugMantis ""
           address' <- readAddress address
-          printMantis "Output Address: "
-          printMantis $ "  " ++ show address
-          printMantis $ "  " ++ show address'
+          debugMantis "Output Address: "
+          debugMantis $ "  " ++ show address
+          debugMantis $ "  " ++ show address'
           printMantis "Unspent UTxO:"
-          utxo <- queryUTxO protocol address' network
+          utxo <- queryUTxO socketPath protocol address' network
           printUTxO "  " utxo
 
 

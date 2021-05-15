@@ -9,7 +9,7 @@ module Mantis.Asset (
 ) where
 
 
-import Cardano.Api.Typed (AssetId(..), AssetName(..), PolicyId(..), serialiseToRawBytes)
+import Cardano.Api (AssetId(..), AssetName(..), PolicyId(..), serialiseToRawBytes)
 import Codec.Binary.Bech32 (HumanReadablePart, dataPartFromBytes, encodeLenient, humanReadablePartFromText)
 import Crypto.Hash (hash)
 import Crypto.Hash.Algorithms (Blake2b_160)
