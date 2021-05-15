@@ -31,7 +31,7 @@ type SomePaymentVerificationKey = Either (VerificationKey PaymentKey) (Verificat
 
 
 readVerificationKey :: MonadIO m
-                    =>FilePath
+                    => FilePath
                     -> MantisM m SomePaymentVerificationKey
 readVerificationKey file =
   foistMantisEitherIO

@@ -90,4 +90,9 @@ data Mantis =
       humanReadablePart :: String
     , dataPart          :: String
     }
+  | Chain
+    {
+      configFile      :: FilePath
+    , outputDirectory :: Maybe FilePath
+    }
     deriving (Eq, Ord, Read, Show)
