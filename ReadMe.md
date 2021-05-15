@@ -24,6 +24,7 @@ It can also generate scripts, compute script addresses, and compute the fingerpr
 	Available commands:
 	  bech32-decode            Decode a Bech32 string.
 	  bech32-encode            Encode a Bech32 string.
+          chain-scripts            Extract scripts used as transaction witnesses in the blockchain.
 	  fingerprint              Compute the Bech32 fingerprint of a token.
 	  info-address             Print information about addresses.
 	  info-tx                  Print contents of transaction files.
@@ -72,6 +73,20 @@ It can also generate scripts, compute script addresses, and compute the fingerpr
 	  POLICY_ID                Policy ID for the token.
 	  ASSET_NAME               Asset name for the token.
 	  -h,--help                Show this help text
+
+
+### Extract information from all blocks and transactions
+
+
+#### Extract scripts from blockchain
+
+    Usage: mantis chain-scripts CONFIG_FILE [--output OUTPUT_DIR]
+      Extract scripts used as transaction witnesses in the blockchain.
+    
+    Available options:
+      CONFIG_FILE              Path to configuration file.
+      --output OUTPUT_DIR      Output directory for script files.
+      -h,--help                Show this help text
 
 
 ### Show information about a transaction file or address
