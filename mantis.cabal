@@ -36,8 +36,6 @@ executable mantis
                   , bech32
                   , bytestring
                   , cardano-api
-                  , cardano-ledger-shelley-ma
-                  , cardano-node
                   , containers
                   , cryptonite
                   , extra
@@ -45,10 +43,7 @@ executable mantis
                   , memory
                   , mtl
                   , optparse-applicative
-                  , ouroboros-consensus-cardano
-                  , ouroboros-consensus-shelley
                   , ouroboros-network
-                  , shelley-spec-ledger
                   , text
                   , transformers
                   , transformers-except
