@@ -60,7 +60,8 @@ main debugMantis configFile tokenSlot scriptFile =
       before = (`adjustSlot` tip) <$> tokenSlot
 
     verificationKey <- readVerificationKey verificationKeyFile
-    verificationKeyHash <- makeVerificationKeyHash verificationKey
+    let
+      verificationKeyHash = makeVerificationKeyHash verificationKey
     debugMantis ""
     debugMantis $ "Verification key hash: " ++ show verificationKeyHash
 

@@ -82,7 +82,8 @@ main debugMantis configFile mintingFile tokenSlot outputAddress scriptFile metad
     debugMantis $ "Output Address: " ++ fromMaybe addressString outputAddress
 
     verificationKey <- readVerificationKey verificationKeyFile
-    verificationKeyHash <- makeVerificationKeyHash verificationKey
+    let
+      verificationKeyHash = makeVerificationKeyHash verificationKey
     signingKey <- readSigningKey signingKeyFile
     debugMantis ""
     debugMantis $ "Verification key hash: " ++ show verificationKeyHash

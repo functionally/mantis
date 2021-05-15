@@ -83,7 +83,8 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
     debugMantis $ "Output Address: " ++ fromMaybe addressString outputAddress
 
     verificationKey <- readVerificationKey verificationKeyFile
-    verificationKeyHash <- makeVerificationKeyHash verificationKey
+    let
+      verificationKeyHash = makeVerificationKeyHash verificationKey
     signingKey <- readSigningKey signingKeyFile
     debugMantis ""
     debugMantis $ "Verification key hash: " ++ show verificationKeyHash
