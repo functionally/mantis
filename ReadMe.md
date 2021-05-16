@@ -4,7 +4,9 @@ This tool provides several script-oriented utilities for the Cardano blockchain.
 
 In particular, it posts metadata or mints/burns tokens. By default, it gathers the UTxOs from the address into a transaction with output to that same address, but minting/burning tokens and/or posting metadata in the process. The cost is the minimum network fee for the transaction.
 
-It can also generate scripts, compute script addresses, and compute the fingerprint of a token.
+It can also generate scripts, compute script addresses, compute the fingerprint of a token, and download scripts.
+
+Please post questions and issues [here](https://github.com/functionally/mantis/issues).
 
 
 ## Installation
