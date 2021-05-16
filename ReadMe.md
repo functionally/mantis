@@ -11,7 +11,7 @@ Please post questions and issues [here](https://github.com/functionally/mantis/i
 
 ## Installation
 
-This packages uses the [`haskell.nix`](https://input-output-hk.github.io/haskell.nix/) build system. Simply clone this repository and execute the build command:
+This package uses the [`haskell.nix`](https://input-output-hk.github.io/haskell.nix/) build system. Simply clone this repository and execute the build command:
 
 	nix-build -A mantis.components.exes.mantis -o build
 
