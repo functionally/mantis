@@ -7,6 +7,24 @@ In particular, it posts metadata or mints/burns tokens. By default, it gathers t
 It can also generate scripts, compute script addresses, and compute the fingerprint of a token.
 
 
+## Installation
+
+This packages uses the [`haskell.nix`](https://input-output-hk.github.io/haskell.nix/) build system. Simply clone this repository and execute the build command:
+
+	nix-build -A mantis.components.exes.mantis -o build
+
+The executable result will be in `./build/bin/mantis`.
+
+
+### Development environment
+
+Due to quirks in how [`haskell.nix`](https://input-output-hk.github.io/haskell.nix/) and [`cabal.project`](https://cabal.readthedocs.io/en/3.4/cabal-project.html) interact, the following procedure needs to be followed to create a development environment for compiling `mantis`:
+
+1.  Run `nix-shell`. This takes a while to build unless you set `withHoogle = false` in [shell.nix](shell.nix).
+2.  Temporarily comment-out the `source-repository-package` lines in [cabal.project](cabal.project).
+3.  Run `cabal build`, `hoogle`, or other development tools defined in [shell.nix](shell.nix).
+
+
 ## Command-line options
 
 	$ mantis --help
@@ -218,32 +236,47 @@ The `MINTING_FILE` must be a JSON-formatted object with keys equal to the asset 
 	}
 
 
-## Sample configuration files
+## Configuration file format
+
+The configuration file contains the basic network information, along with the funds address and location of the verification and signing keys.
+
+| Field                 | Description                                                                                          | Example Value                                                                                               |
+|-----------------------|------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| `socketPath`          | The path to the `cardano-node` socket.                                                               | `"/home/myusername/.local/share/Daedalus/testnet/cardano-node.socket"`                                      |
+| `magic`               | The network magic: `Nothing` for `mainnet`, or `Just` followed by an integer for a test network.     | `Just 1097911063`                                                                                           |
+| `epochSlots`          | The number of slots in an epoch on the network, generally always `21600`.                            | `21600`                                                                                                     |
+| `addressString`       | The address for the source of UTxOs.                                                                 | `"addr1qq9prvx8ufwutkwxx9cmmuuajaqmjqwujqlp9d8pvg6gupcvluken35ncjnu0puetf5jvttedkze02d5kf890kquh60slacjyp"` |
+| `verificationKeyFile` | Location of the verification key file for the address.                                               | `"payment.vkey"`                                                                                            |
+| `signingKeyFile`      | Location of the signing key file. This may be `/dev/stdin` or a Unix pipe instead of an actual file. | `"payment.skey"`                                                                                            |
 
 
-### For Mainnet
+### Sample configuration for `mainnet`
 
-	$ cat mainnet.mantis 
+See [sample-mainnet.mantis](sample-mainnet.mantis).
+
+	$ cat sample-mainnet.mantis 
 	
 	Configuration {
-	  socketPath          = "mainnet.socket"
+	  socketPath          = "/home/myusername/.local/share/Daedalus/mainnet/cardano-node.socket"
         , magic               = Nothing
 	, epochSlots          = 21600
-	, addressString       = "addr_test1qq9prvx8ufwutkwxx9cmmuuajaqmjqwujqlp9d8pvg6gupcvluken35ncjnu0puetf5jvttedkze02d5kf890kquh60slacjyp"
+	, addressString       = "addr1qq9prvx8ugwutkwxx9cmmuuajaqmjqwujqlp9d8pvg6gupcvluken35ncjnu0puetf5jvttedkze02d5kf890kquh60slacjyp"
 	, verificationKeyFile = "payment.vkey"
 	, signingKeyFile      = "payment.skey"
 	}
 
 
-### For Testnet.
+### Sample configuration for `testnet`.
 
-	$ cat testnet.mantis 
+See [sample-testnet.mantis](sample-testnet.mantis).
+
+	$ cat sample-testnet.mantis 
 	
 	Configuration {
-	  socketPath          = "testnet.socket"
+	  socketPath          = "/home/myusername/.local/share/Daedalus/testnet/cardano-node.socket"
         , magic               = Just 1097911063
 	, epochSlots          = 21600
-	, addressString       = "addr_test1qq9prvx8ufwutkwxx9cmmuuajaqmjqwujqlp9d8pvg6gupcvluken35ncjnu0puetf5jvttedkze02d5kf890kquh60slacjyp"
+	, addressString       = "addr_test1qq9prvx8ugwutkwxx9cmmuuajaqmjqwujqlp9d8pvg6gupcvluken35ncjnu0puetf5jvttedkze02d5kf890kquh60slacjyp"
 	, verificationKeyFile = "payment.vkey"
 	, signingKeyFile      = "payment.skey"
 	}

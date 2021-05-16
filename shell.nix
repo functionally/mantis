@@ -1,31 +1,28 @@
-{
-  pkgs ? import cardano-node/nix/default.nix {}
-}:
-
 let
-
-  haskell = pkgs.haskell.packages.ghc8102;
-
-  haskellPackages = haskell.override {
-    overrides = self: super: pkgs.cardanoNodeHaskellPackages;
-  };
-
-  ghc = haskellPackages.ghcWithHoogle (ps: with ps; [
-    cardano-api
-    cardano-cli
-    cardano-node
-  ]);
-
+  project = import ./default.nix;
 in
+  project.shellFor {
 
-  pkgs.stdenv.mkDerivation {
-    name = "cardano-env";
-    buildInputs = [
-      ghc
-      haskell.cabal-install
-      haskell.ghcide
-    # haskell.hdevtools
-      haskell.hlint
-      haskell.pointfree
+    packages = ps: with ps; [
+      mantis
     ];
+
+    # Set the following to `false` do disable the lengthy building of documentation.
+    withHoogle = true;
+
+     # See overlays/tools.nix for more details
+    tools = {
+      cabal                   = "latest";
+      ghcide                  = "latest";
+      haskell-language-server = "latest";
+    # hdevtools               = "latest";
+    # hindent                 = "latest";
+      hlint                   = "latest";
+      pointfree               = "latest";
+    # pointfull               = "latest";
+    };
+
+    buildInputs = [ (import <nixpkgs> {}).git ];
+
+    exactDeps = true;
   }

@@ -12,3 +12,5 @@ cabal.sandbox.config
 *.json
 keys/
 *.socket
+result*
+build
