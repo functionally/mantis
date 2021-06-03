@@ -17,6 +17,8 @@ This package uses the [`haskell.nix`](https://input-output-hk.github.io/haskell.
 
 The executable result will be in `./build/bin/mantis`.
 
+Alternatively, one can use the `cabal install` installation approach, which relies on the [cabal.project](cabal.project) file and which is known to succeed with cabal 3.4.0.0 and ghc 8.10.4.
+
 
 ### Development environment
 

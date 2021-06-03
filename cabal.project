@@ -1,8 +1,16 @@
 index-state: 2021-03-15T00:00:00Z
 
 
+-- This configuration is known to work with GHC 8.10.4.
+
+
 packages: .
 
+--  -- FIXME: On some platforms, one may need to explicitly specify the locations of the `zlib`
+--  --        header and library files.
+--  package digest
+--    extra-include-dirs: /nix/store/m11lzq9kbi76yx339hqi98sjvv3l3jxh-zlib-1.2.11-dev/include
+--    extra-lib-dirs:     /nix/store/qvgf4g9c5h3wzq4xjy566vc0pqgc9fjq-zlib-1.2.11/lib
 
 package cardano-crypto-praos
   flags: -external-libsodium-vrf
