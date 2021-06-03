@@ -25,7 +25,7 @@ import qualified Options.Applicative   as O
 command :: O.Mod O.CommandFields Mantis
 command =
   O.command "chain-scripts"
-    $ O.info options (O.progDesc "Extract scripts used as transaction witnesses in the blockchain.")
+    $ O.info options (O.progDesc "Download scripts used as transaction witnesses.")
 
 
 options :: O.Parser Mantis
