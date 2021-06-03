@@ -62,7 +62,7 @@ The configuration file contains the basic network information, along with the fu
 	Available commands:
 	  bech32-decode            Decode a Bech32 string.
 	  bech32-encode            Encode a Bech32 string.
-	  chain-scripts            Extract scripts used as transaction witnesses in the blockchain.
+	  chain-scripts            Download scripts used as transaction witnesses.
 	  fingerprint              Compute the Bech32 fingerprint of a token.
 	  info-address             Print information about addresses.
 	  info-tx                  Print contents of transaction files.
@@ -113,13 +113,13 @@ The configuration file contains the basic network information, along with the fu
 	  -h,--help                Show this help text
 
 
-### Extract information from all blocks and transactions
+### Download information from all blocks and transactions
 
 
-#### Extract scripts from blockchain
+#### Download scripts from blockchain
 
     Usage: mantis chain-scripts CONFIG_FILE [--output OUTPUT_DIR]
-      Extract scripts used as transaction witnesses in the blockchain.
+      Download scripts used as transaction witnesses.
     
     Available options:
       CONFIG_FILE              Path to configuration file.
