@@ -9,6 +9,27 @@ It can also generate scripts, compute script addresses, compute the fingerprint 
 Please post questions and issues [here](https://github.com/functionally/mantis/issues).
 
 
+## Security considerations
+
+*As is the case for any third-party tool that accesses private/signing keys, one should carefully review the source code for maliciousness or security vulnerabilities and verify the provenance of the executable code.*
+
+Instead of storing the signing key in a file that is referenced by the configuration file, the tool can read the key from a pipe such as standard input or from a Unix socket. For example, if the key file was encrypted using GnuPG, the following command will pipe the decrypted key into the tool:
+
+	gpg -d my-key.skey.gpg | mantis transact my-config.mantis . . .
+
+where the configuration file `my-config.mantis` has set the signing key to `/dev/stdin`. Similar, one can use a Unix socket to achieve a similar result:
+
+	if [ ! -e payment.skey ]
+	then
+	  mkfifo payment.skey
+	fi
+	gpg --pinentry loopback --decrypt payment.skey.gpg > payment.skey &
+	
+	mantis transact my-config.mantis . . .
+
+where the configuration file has set the signing key to the socket `payment.skey`. Both methods avoid storing the unencrypted key in a disk file.
+
+
 ## Installation
 
 This package uses the [`haskell.nix`](https://input-output-hk.github.io/haskell.nix/) build system. Simply clone this repository and execute the build command:
