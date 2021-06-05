@@ -12,10 +12,10 @@ import Cardano.Api (ConsensusModeParams(CardanoModeParams), EpochSlots(..), Netw
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Extra (whenJust)
 import Data.Aeson.Encode.Pretty (encodePretty)
-import Mantis.Command.Types (Configuration(..), Mantis(..), SlotRef)
+import Mantis.Command.Types (Configuration(..), Mantis(..))
 import Mantis.Query (adjustSlot, queryTip)
 import Mantis.Script (mintingScript)
-import Mantis.Types (MantisM)
+import Mantis.Types (MantisM, SlotRef)
 import Mantis.Wallet (makeVerificationKeyHash, readVerificationKey)
 
 import qualified Data.ByteString.Lazy as LBS   (writeFile)
