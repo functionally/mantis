@@ -14,8 +14,7 @@ module Mantis.Query (
 import Cardano.Api (AddressAny, CardanoMode, ChainTip(..), ConsensusModeParams, EraInMode(MaryEraInCardanoMode), LocalNodeConnectInfo(..), MaryEra, NetworkId, QueryInEra(QueryInShelleyBasedEra), QueryInMode(..), ShelleyBasedEra(ShelleyBasedEraMary), SlotNo(..), Tx, TxInMode(..), TxValidationErrorInMode, getLocalChainTip, queryNodeLocalState, submitTxToNodeLocal)
 import Cardano.Api.Shelley (ProtocolParameters, QueryInShelleyBasedEra(..), UTxO)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Mantis.Command.Types (SlotRef(..))
-import Mantis.Types (MantisM, foistMantisEither, foistMantisEitherIO)
+import Mantis.Types (MantisM, SlotRef(..), foistMantisEither, foistMantisEitherIO)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Type (SubmitResult)
 
 import qualified Data.Set as S (singleton)

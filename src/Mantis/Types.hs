@@ -17,9 +17,11 @@ module Mantis.Types (
 , foistMantisMaybe
 , foistMantisMaybeIO
 , throwMantis
+, SlotRef(..)
 ) where
 
 
+import Control.Arrow (first)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Except (MonadError)
 import Control.Monad.Trans (MonadTrans, lift)
@@ -119,3 +121,13 @@ debugMantis :: MonadIO m
             => String
             -> MantisM m ()
 debugMantis = logMantis False
+
+
+data SlotRef =
+    AbsoluteSlot Integer
+  | RelativeSlot Integer
+    deriving (Eq, Ord, Show)
+
+instance Read SlotRef where
+  readsPrec p ('+' : remainder) = first RelativeSlot <$> readsPrec p remainder
+  readsPrec p        remainder  = first AbsoluteSlot <$> readsPrec p remainder
