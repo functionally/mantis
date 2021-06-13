@@ -116,7 +116,7 @@ readMetadata' :: MonadIO m
 readMetadata' filename =
   do
     json <-
-      foistMantisMaybeIO "Cound not decode metadata."
+      foistMantisMaybeIO "Could not decode metadata."
         $ A.decodeFileStrict filename
     metadata <-
       foistMantisEither
@@ -211,8 +211,17 @@ readMinting :: MonadFail m
             -> MantisM m (A.Value, TxMetadata, Value)
 readMinting policyId filename =
   do
-    (A.Object json, metadata) <- readMetadata' filename
+    A.Object json <-
+      foistMantisMaybeIO "Could not decode metadata."
+        $ A.decodeFileStrict filename
     let
+      json' =
+        A.Object
+        . H.singleton "721"
+        . A.Object
+        $ H.singleton
+          (T.pack . BS.unpack $ serialiseToRawBytesHex policyId)
+          (A.Object json)
       minting =
         valueFromList
           [
@@ -223,11 +232,7 @@ readMinting policyId filename =
           |
             name <- H.keys json
           ]
-      json' =
-          A.Object
-          . H.singleton "721"
-          . A.Object
-          $ H.singleton
-            (T.pack . BS.unpack $ serialiseToRawBytesHex policyId)
-            (A.Object json)
+    metadata <-
+      foistMantisEither
+        $ metadataFromJson TxMetadataJsonNoSchema json'
     return (json', metadata, minting)
