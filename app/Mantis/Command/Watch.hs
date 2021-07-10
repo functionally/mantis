@@ -65,7 +65,7 @@ mainAddress debugIO configFile addresses continue =
     liftIO . debugIO $ "Network: " ++ show network
 
     watchTransactions socketPath protocol network (return $ not continue) ignoreTxIns
-      $ \(BlockHeader slotNo _ _) txIn (TxOut address txOutValue) ->
+      $ \(BlockHeader slotNo _ _) _ txIn (TxOut address txOutValue) ->
         case txOutValue of
           TxOutValue _ value -> 
             when (address `elem` addresses')
@@ -96,7 +96,7 @@ mainCoin debugIO configFile policyId assetName continue =
       case assetName of
         Just assetName' -> do
                              assetName'' <-
-                               foistMantisMaybe "Could not decode policy ID."
+                               foistMantisMaybe "Could not decode asset name."
                                  . deserialiseFromRawBytes AsAssetName
                                  $ BS.pack assetName'
                              return
@@ -120,7 +120,7 @@ mainCoin debugIO configFile policyId assetName continue =
     liftIO . debugIO $ "Network: " ++ show network
 
     watchTransactions socketPath protocol network (return $ not continue) ignoreTxIns
-      $ \(BlockHeader slotNo _ _) txIn (TxOut address txOutValue) ->
+      $ \(BlockHeader slotNo _ _) _ txIn (TxOut address txOutValue) ->
         case txOutValue of
           TxOutValue _ value -> 
             when (assetFilter value)

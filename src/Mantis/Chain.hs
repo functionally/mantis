@@ -129,6 +129,7 @@ type TxInHandler =  BlockHeader
 
 
 type TxOutHandler =  BlockHeader
+                  -> [TxIn]
                   -> TxIn
                   -> TxOut MaryEra
                   -> IO ()
@@ -158,14 +159,9 @@ processTransactions inHandler outHandler (BlockInMode (Block header txs) MaryEra
       do
         sequence_
           [
-            inHandler header $ fromShelleyTxIn txin
-          |
-            txin <- toList txins
-          ]
-        sequence_
-          [
             outHandler
               header
+              (fromShelleyTxIn <$> toList txins)
               (TxIn (getTxId body) (TxIx ix))
               $ TxOut
                 (fromShelleyAddr address)
@@ -173,6 +169,12 @@ processTransactions inHandler outHandler (BlockInMode (Block header txs) MaryEra
           |
             (ix, txout) <- zip [0..] $ toList txouts
           , let ShelleySpec.TxOut address value = txout
+          ]
+        sequence_
+          [
+            inHandler header $ fromShelleyTxIn txin
+          |
+            txin <- toList txins
           ]
     |
       tx <- txs
