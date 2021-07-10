@@ -12,6 +12,7 @@ module Mantis.Transaction (
 , readMetadata
 , printUTxO
 , printValue
+, printValueIO
 , summarizeValues
 , makeMinting
 , readMinting
@@ -151,16 +152,21 @@ printValue :: MonadIO m
            => String
            -> Value
            -> MantisM m ()
-printValue indent value =
-  liftIO
-    $ do
-      putStrLn $ indent ++ show (selectLovelace value) ++ " Lovelace"
-      sequence_
-        [
-          putStrLn $ indent ++ show quantity ++ "  " ++ show' policy ++ "." ++ show' asset
-        |
-          (AssetId (PolicyId policy) (AssetName asset), quantity) <- valueToList $ filterValue (/= AdaAssetId) value
-        ]
+printValue = (liftIO .) . printValueIO
+
+
+printValueIO :: String
+             -> Value
+             -> IO ()
+printValueIO indent value =
+  do
+    putStrLn $ indent ++ show (selectLovelace value)
+    sequence_
+      [
+        putStrLn $ indent ++ show quantity ++ "  " ++ show' policy ++ "." ++ show' asset
+      |
+        (AssetId (PolicyId policy) (AssetName asset), quantity) <- valueToList $ filterValue (/= AdaAssetId) value
+      ]
 
 
 show' :: Show a => a -> String

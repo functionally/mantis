@@ -2,27 +2,29 @@
 
 
 module Mantis.Chain (
-  extractScripts
+  Processor
+, IdleNotifier
+, walkBlocks
+, ScriptHandler
+, extractScripts
+, TxInHandler
+, TxOutHandler
+, watchTransactions
 ) where
 
 
-import Cardano.Api (Block(..), BlockHeader(..), BlockInMode(..), CardanoMode, ChainPoint, ChainTip, ConsensusModeParams, EraInMode(MaryEraInCardanoMode), LocalNodeClientProtocols(..), LocalChainSyncClient(..), LocalNodeConnectInfo(..), MaryEra, NetworkId, Script, ScriptHash, SimpleScriptV2, Tx, connectToLocalNode, getTxWitnesses)
+import Cardano.Api (Block(..), BlockHeader(..), BlockInMode(..), CardanoMode, ChainPoint, ChainTip, ConsensusModeParams, EraInMode(MaryEraInCardanoMode), LocalNodeClientProtocols(..), LocalChainSyncClient(..), LocalNodeConnectInfo(..), MaryEra, NetworkId, Script, ScriptHash, ShelleyBasedEra(..), SimpleScriptV2, Tx, TxIn(..), TxIx(..), TxOut(..), TxOutValue(..), connectToLocalNode, getTxBody, getTxId, getTxWitnesses)
 import Cardano.Api.ChainSync.Client (ChainSyncClient(..), ClientStIdle(..), ClientStNext(..))
+import Cardano.Api.Shelley (TxBody(ShelleyTxBody), fromMaryValue, fromShelleyAddr, fromShelleyTxIn)
 import Control.Monad.Extra (whenJust)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Data.Foldable (toList)
 import Mantis.Chain.Internal (interpretAsScript)
+import Mantis.Transaction (supportedMultiAsset)
 import Mantis.Types (MantisM)
 
-
-extractScripts :: MonadIO m
-               => FilePath
-               -> ConsensusModeParams CardanoMode
-               -> NetworkId
-               -> (BlockHeader -> Tx MaryEra -> ScriptHash -> Script SimpleScriptV2 -> IO ())
-               -> MantisM m ()
-extractScripts socketPath mode network handler =
-  walkBlocks socketPath mode network
-    $ processScripts handler
+import qualified Cardano.Ledger.ShelleyMA.TxBody as LedgerMA    (TxBody(..))
+import qualified Shelley.Spec.Ledger.TxBody      as ShelleySpec (TxOut(..))
 
 
 type Processor =  BlockInMode CardanoMode
@@ -30,19 +32,23 @@ type Processor =  BlockInMode CardanoMode
                -> IO ()
 
 
+type IdleNotifier = IO Bool
+
+
 walkBlocks :: MonadIO m
            => FilePath
            -> ConsensusModeParams CardanoMode
            -> NetworkId
+           -> IdleNotifier
            -> Processor
            -> MantisM m ()
-walkBlocks socketPath mode network processBlock =
+walkBlocks socketPath mode network notifyIdle processBlock =
   let
     localNodeConnInfo = LocalNodeConnectInfo mode network socketPath
     protocols =
       LocalNodeClientProtocols
       {
-        localChainSyncClient    = LocalChainSyncClient $ client processBlock
+        localChainSyncClient    = LocalChainSyncClient $ client notifyIdle processBlock
       , localTxSubmissionClient = Nothing
       , localStateQueryClient   = Nothing
       }
@@ -51,19 +57,25 @@ walkBlocks socketPath mode network processBlock =
       $ connectToLocalNode localNodeConnInfo protocols
 
 
-client :: Processor
+client :: IdleNotifier
+       -> Processor
        -> ChainSyncClient (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
-client processBlock =
+client notifyIdle processBlock =
   ChainSyncClient
     $ let
         clientStIdle =
           return
-            $ SendMsgRequestNext clientStNext clientDone
+            . SendMsgRequestNext clientStNext
+            $ do
+              terminate <- notifyIdle
+              if terminate
+                then clientDone
+                else return clientStNext
         clientStNext =
           ClientStNext
           {
             recvMsgRollForward  = \block tip -> ChainSyncClient $ processBlock block tip >> clientStIdle
-          , recvMsgRollBackward = \_     _   -> ChainSyncClient clientStIdle
+          , recvMsgRollBackward = \_     _   -> ChainSyncClient clientStIdle -- FIXME: Handle rollbacks.
           }
         clientDone =
           return
@@ -74,6 +86,25 @@ client processBlock =
               }
      in
       clientStIdle
+
+
+type ScriptHandler =  BlockHeader
+                   -> Tx MaryEra
+                   -> ScriptHash
+                   -> Script SimpleScriptV2
+                   -> IO ()
+
+
+extractScripts :: MonadIO m
+               => FilePath
+               -> ConsensusModeParams CardanoMode
+               -> NetworkId
+               -> IdleNotifier
+               -> (BlockHeader -> Tx MaryEra -> ScriptHash -> Script SimpleScriptV2 -> IO ())
+               -> MantisM m ()
+extractScripts socketPath mode network notifyIdle handler =
+  walkBlocks socketPath mode network notifyIdle
+    $ processScripts handler
 
 
 processScripts :: (BlockHeader -> Tx MaryEra -> ScriptHash -> Script SimpleScriptV2 -> IO ())
@@ -90,3 +121,62 @@ processScripts handler (BlockInMode (Block header txs) MaryEraInCardanoMode) _ti
     , witness <- getTxWitnesses tx
     ]
 processScripts _ _ _ = return ()
+
+
+type TxInHandler =  BlockHeader
+                 -> TxIn
+                 -> IO ()
+
+
+type TxOutHandler =  BlockHeader
+                  -> TxIn
+                  -> TxOut MaryEra
+                  -> IO ()
+
+
+watchTransactions :: MonadIO m
+                  => FilePath
+                  -> ConsensusModeParams CardanoMode
+                  -> NetworkId
+                  -> IdleNotifier
+                  -> TxInHandler
+                  -> TxOutHandler
+                  -> MantisM m ()
+watchTransactions socketPath mode network notifyIdle inHandler outHandler =
+  walkBlocks socketPath mode network notifyIdle
+    $ processTransactions inHandler outHandler
+
+
+processTransactions :: TxInHandler
+                    -> TxOutHandler
+                    -> BlockInMode CardanoMode
+                    -> ChainTip
+                    -> IO ()
+processTransactions inHandler outHandler (BlockInMode (Block header txs) MaryEraInCardanoMode) _tip =
+  sequence_
+    [
+      do
+        sequence_
+          [
+            inHandler header $ fromShelleyTxIn txin
+          |
+            txin <- toList txins
+          ]
+        sequence_
+          [
+            outHandler
+              header
+              (TxIn (getTxId body) (TxIx ix))
+              $ TxOut
+                (fromShelleyAddr address)
+                (TxOutValue supportedMultiAsset (fromMaryValue value))
+          |
+            (ix, txout) <- zip [0..] $ toList txouts
+          , let ShelleySpec.TxOut address value = txout
+          ]
+    |
+      tx <- txs
+    , let body = getTxBody tx
+          ShelleyTxBody ShelleyBasedEraMary (LedgerMA.TxBody txins txouts _ _ _ _ _ _ _) _ = body
+    ]
+processTransactions _ _ _ _ = return ()

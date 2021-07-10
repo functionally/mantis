@@ -5,17 +5,19 @@
 module Mantis.Wallet (
   SomePaymentVerificationKey
 , readAddress
+, showAddress
+, showAddressMary
 , readVerificationKey
 , makeVerificationKeyHash
 , readSigningKey
 ) where
 
 
-import Cardano.Api (AddressAny, AsType(..), Hash, PaymentExtendedKey, PaymentExtendedKey, PaymentKey, SigningKey, VerificationKey, castVerificationKey, deserialiseAddress, readFileTextEnvelope, verificationKeyHash)
+import Cardano.Api (AddressAny, AddressInEra, AsType(..), Hash, MaryEra, PaymentExtendedKey, PaymentExtendedKey, PaymentKey, SigningKey, VerificationKey, castVerificationKey, deserialiseAddress, readFileTextEnvelope, serialiseAddress, verificationKeyHash)
 import Control.Monad.IO.Class (MonadIO)
 import Mantis.Types (MantisM, foistMantisEitherIO, foistMantisMaybe)
 
-import qualified Data.Text as T (pack)
+import qualified Data.Text as T (pack, unpack)
 
 
 readAddress :: Monad m
@@ -26,6 +28,16 @@ readAddress =
     . deserialiseAddress AsAddressAny
     . T.pack
 
+
+showAddress :: AddressAny
+            -> String
+showAddress = T.unpack . serialiseAddress
+  
+
+showAddressMary :: AddressInEra MaryEra
+                -> String
+showAddressMary = T.unpack . serialiseAddress
+  
 
 type SomePaymentVerificationKey = Either (VerificationKey PaymentKey) (VerificationKey PaymentExtendedKey)
 
