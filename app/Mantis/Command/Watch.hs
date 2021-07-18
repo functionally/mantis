@@ -13,7 +13,7 @@ module Mantis.Command.Watch (
 import Cardano.Api (AssetId(..), AsType(AsAssetName, AsPolicyId), BlockHeader(..), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), TxOut(..), TxOutValue(..), anyAddressInShelleyBasedEra, deserialiseFromRawBytes, deserialiseFromRawBytesHex, selectAsset, valueToList)
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Mantis.Chain (watchTransactions)
+import Mantis.Chain (Reverter, watchTransactions)
 import Mantis.Command.Types (Configuration(..), Mantis(..))
 import Mantis.Types (MantisM, foistMantisMaybe)
 import Mantis.Transaction (printValueIO)
@@ -64,7 +64,7 @@ mainAddress debugIO configFile addresses continue =
     liftIO $ debugIO ""
     liftIO . debugIO $ "Network: " ++ show network
 
-    watchTransactions socketPath protocol network (return $ not continue) ignoreTxIns
+    watchTransactions socketPath protocol network (Just reportReversion) (return $ not continue) ignoreTxIns
       $ \(BlockHeader slotNo _ _) _ txIn (TxOut address txOutValue) ->
         case txOutValue of
           TxOutValue _ value -> 
@@ -119,7 +119,7 @@ mainCoin debugIO configFile policyId assetName continue =
     liftIO $ debugIO ""
     liftIO . debugIO $ "Network: " ++ show network
 
-    watchTransactions socketPath protocol network (return $ not continue) ignoreTxIns
+    watchTransactions socketPath protocol network (Just reportReversion) (return $ not continue) ignoreTxIns
       $ \(BlockHeader slotNo _ _) _ txIn (TxOut address txOutValue) ->
         case txOutValue of
           TxOutValue _ value -> 
@@ -130,3 +130,11 @@ mainCoin debugIO configFile policyId assetName continue =
                 putStrLn $ "  " ++ showAddressMary address
                 printValueIO "  " value
           _ -> return ()
+
+
+reportReversion :: Reverter
+reportReversion point tip =
+  do
+    putStrLn "Rollback:"
+    putStrLn $ "  " ++ show point
+    putStrLn $ "  " ++ show tip

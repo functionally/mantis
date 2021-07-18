@@ -3,6 +3,7 @@
 
 module Mantis.Chain (
   Processor
+, Reverter
 , IdleNotifier
 , walkBlocks
 , ScriptHandler
@@ -32,6 +33,11 @@ type Processor =  BlockInMode CardanoMode
                -> IO ()
 
 
+type Reverter =  ChainPoint
+              -> ChainTip
+              -> IO ()
+
+
 type IdleNotifier = IO Bool
 
 
@@ -40,15 +46,16 @@ walkBlocks :: MonadIO m
            -> ConsensusModeParams CardanoMode
            -> NetworkId
            -> IdleNotifier
+           -> Maybe Reverter
            -> Processor
            -> MantisM m ()
-walkBlocks socketPath mode network notifyIdle processBlock =
+walkBlocks socketPath mode network notifyIdle revertPoint processBlock =
   let
     localNodeConnInfo = LocalNodeConnectInfo mode network socketPath
     protocols =
       LocalNodeClientProtocols
       {
-        localChainSyncClient    = LocalChainSyncClient $ client notifyIdle processBlock
+        localChainSyncClient    = LocalChainSyncClient $ client notifyIdle revertPoint processBlock
       , localTxSubmissionClient = Nothing
       , localStateQueryClient   = Nothing
       }
@@ -58,9 +65,10 @@ walkBlocks socketPath mode network notifyIdle processBlock =
 
 
 client :: IdleNotifier
+       -> Maybe Reverter
        -> Processor
        -> ChainSyncClient (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
-client notifyIdle processBlock =
+client notifyIdle revertPoint processBlock =
   ChainSyncClient
     $ let
         clientStIdle =
@@ -74,8 +82,10 @@ client notifyIdle processBlock =
         clientStNext =
           ClientStNext
           {
-            recvMsgRollForward  = \block tip -> ChainSyncClient $ processBlock block tip >> clientStIdle
-          , recvMsgRollBackward = \_     _   -> ChainSyncClient clientStIdle -- FIXME: Handle rollbacks.
+            recvMsgRollForward  = \block tip -> ChainSyncClient $ processBlock block tip
+                                                                >> clientStIdle
+          , recvMsgRollBackward = \point tip -> ChainSyncClient $ whenJust revertPoint (\f -> f point tip)
+                                                                >> clientStIdle
           }
         clientDone =
           return
@@ -103,7 +113,7 @@ extractScripts :: MonadIO m
                -> (BlockHeader -> Tx MaryEra -> ScriptHash -> Script SimpleScriptV2 -> IO ())
                -> MantisM m ()
 extractScripts socketPath mode network notifyIdle handler =
-  walkBlocks socketPath mode network notifyIdle
+  walkBlocks socketPath mode network notifyIdle Nothing
     $ processScripts handler
 
 
@@ -139,12 +149,13 @@ watchTransactions :: MonadIO m
                   => FilePath
                   -> ConsensusModeParams CardanoMode
                   -> NetworkId
+                  -> Maybe Reverter
                   -> IdleNotifier
                   -> TxInHandler
                   -> TxOutHandler
                   -> MantisM m ()
-watchTransactions socketPath mode network notifyIdle inHandler outHandler =
-  walkBlocks socketPath mode network notifyIdle
+watchTransactions socketPath mode network revertPoint notifyIdle inHandler outHandler =
+  walkBlocks socketPath mode network notifyIdle revertPoint
     $ processTransactions inHandler outHandler
 
 
