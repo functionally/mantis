@@ -133,6 +133,11 @@ processScripts handler (BlockInMode (Block header txs) MaryEraInCardanoMode) _ti
 processScripts _ _ _ = return ()
 
 
+type BlockHandler =  BlockHeader
+                  -> ChainTip
+                  -> IO ()
+
+
 type TxInHandler =  BlockHeader
                  -> TxIn
                  -> IO ()
@@ -151,45 +156,49 @@ watchTransactions :: MonadIO m
                   -> NetworkId
                   -> Maybe Reverter
                   -> IdleNotifier
+                  -> BlockHandler
                   -> TxInHandler
                   -> TxOutHandler
                   -> MantisM m ()
-watchTransactions socketPath mode network revertPoint notifyIdle inHandler outHandler =
+watchTransactions socketPath mode network revertPoint notifyIdle blockHandler inHandler outHandler =
   walkBlocks socketPath mode network notifyIdle revertPoint
-    $ processTransactions inHandler outHandler
+    $ processTransactions blockHandler inHandler outHandler
 
 
-processTransactions :: TxInHandler
+processTransactions :: BlockHandler
+                    -> TxInHandler
                     -> TxOutHandler
                     -> BlockInMode CardanoMode
                     -> ChainTip
                     -> IO ()
-processTransactions inHandler outHandler (BlockInMode (Block header txs) MaryEraInCardanoMode) _tip =
-  sequence_
-    [
-      do
-        sequence_
-          [
-            outHandler
-              header
-              (fromShelleyTxIn <$> toList txins)
-              (TxIn (getTxId body) (TxIx ix))
-              $ TxOut
-                (fromShelleyAddr address)
-                (TxOutValue supportedMultiAsset (fromMaryValue value))
-          |
-            (ix, txout) <- zip [0..] $ toList txouts
-          , let ShelleySpec.TxOut address value = txout
-          ]
-        sequence_
-          [
-            inHandler header $ fromShelleyTxIn txin
-          |
-            txin <- toList txins
-          ]
-    |
-      tx <- txs
-    , let body = getTxBody tx
-          ShelleyTxBody ShelleyBasedEraMary (LedgerMA.TxBody txins txouts _ _ _ _ _ _ _) _ = body
-    ]
-processTransactions _ _ _ _ = return ()
+processTransactions blockHandler inHandler outHandler (BlockInMode (Block header txs) MaryEraInCardanoMode) tip =
+  do
+    blockHandler header tip
+    sequence_
+      [
+        do
+          sequence_
+            [
+              outHandler
+                header
+                (fromShelleyTxIn <$> toList txins)
+                (TxIn (getTxId body) (TxIx ix))
+                $ TxOut
+                  (fromShelleyAddr address)
+                  (TxOutValue supportedMultiAsset (fromMaryValue value))
+            |
+              (ix, txout) <- zip [0..] $ toList txouts
+            , let ShelleySpec.TxOut address value = txout
+            ]
+          sequence_
+            [
+              inHandler header $ fromShelleyTxIn txin
+            |
+              txin <- toList txins
+            ]
+      |
+        tx <- txs
+      , let body = getTxBody tx
+            ShelleyTxBody ShelleyBasedEraMary (LedgerMA.TxBody txins txouts _ _ _ _ _ _ _) _ = body
+      ]
+processTransactions _ _ _ _ _ = return ()

@@ -60,11 +60,12 @@ mainAddress debugIO configFile addresses continue =
     let
       protocol = CardanoModeParams $ EpochSlots epochSlots
       network = maybe Mainnet (Testnet . NetworkMagic) magic
+      ignoreBlocks = const . const $ return ()
       ignoreTxIns = const . const $ return ()
     liftIO $ debugIO ""
     liftIO . debugIO $ "Network: " ++ show network
 
-    watchTransactions socketPath protocol network (Just reportReversion) (return $ not continue) ignoreTxIns
+    watchTransactions socketPath protocol network (Just reportReversion) (return $ not continue) ignoreBlocks ignoreTxIns
       $ \(BlockHeader slotNo _ _) _ txIn (TxOut address txOutValue) ->
         case txOutValue of
           TxOutValue _ value -> 
@@ -115,11 +116,12 @@ mainCoin debugIO configFile policyId assetName continue =
     let
       protocol = CardanoModeParams $ EpochSlots epochSlots
       network = maybe Mainnet (Testnet . NetworkMagic) magic
+      ignoreBlocks = const . const $ return ()
       ignoreTxIns = const . const $ return ()
     liftIO $ debugIO ""
     liftIO . debugIO $ "Network: " ++ show network
 
-    watchTransactions socketPath protocol network (Just reportReversion) (return $ not continue) ignoreTxIns
+    watchTransactions socketPath protocol network (Just reportReversion) (return $ not continue) ignoreBlocks ignoreTxIns
       $ \(BlockHeader slotNo _ _) _ txIn (TxOut address txOutValue) ->
         case txOutValue of
           TxOutValue _ value -> 
