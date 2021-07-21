@@ -1,4 +1,5 @@
 
+{-# LANGUAGE GADTs             #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 
@@ -10,14 +11,16 @@ module Mantis.Wallet (
 , readVerificationKey
 , makeVerificationKeyHash
 , readSigningKey
+, stakeReference
 ) where
 
 
-import Cardano.Api (AddressAny, AddressInEra, AsType(..), Hash, MaryEra, PaymentExtendedKey, PaymentExtendedKey, PaymentKey, SigningKey, VerificationKey, castVerificationKey, deserialiseAddress, readFileTextEnvelope, serialiseAddress, verificationKeyHash)
+import Cardano.Api (AddressAny(..), AddressInEra, AsType(..), Hash, MaryEra, PaymentExtendedKey, PaymentExtendedKey, PaymentKey, SigningKey, StakeAddressReference(NoStakeAddress), VerificationKey, castVerificationKey, deserialiseAddress, readFileTextEnvelope, serialiseAddress, verificationKeyHash)
 import Control.Monad.IO.Class (MonadIO)
 import Mantis.Types (MantisM, foistMantisEitherIO, foistMantisMaybe)
 
-import qualified Data.Text as T (pack, unpack)
+import qualified Cardano.Api.Shelley  as Shelley (Address(ShelleyAddress), fromShelleyStakeReference)
+import qualified Data.Text            as T (pack, unpack)
 
 
 readAddress :: Monad m
@@ -66,3 +69,9 @@ readSigningKey :: MonadIO m
 readSigningKey =
   foistMantisEitherIO
     . readFileTextEnvelope (AsSigningKey AsPaymentExtendedKey)
+
+
+stakeReference :: AddressAny
+               -> StakeAddressReference
+stakeReference (AddressShelley (Shelley.ShelleyAddress _ _ s)) = Shelley.fromShelleyStakeReference s
+stakeReference _                                               = NoStakeAddress
