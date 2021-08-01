@@ -1,0 +1,6 @@
+cradle:
+  cabal:
+    - component: "lib:mantis"
+      path: "./src"
+    - component: "exe:mantis"
+      path: "./app"

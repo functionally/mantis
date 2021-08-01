@@ -1,0 +1,297 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-----------------------------------------------------------------------------</span><span>
+</span><span id="line-2"></span><span class="hs-comment">--</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Module      :  $Headers</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Copyright   :  (c) 2021 Brian W Bush</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- License     :  MIT</span><span>
+</span><span id="line-6"></span><span class="hs-comment">--</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Maintainer  :  Brian W Bush &lt;code@functionally.io&gt;</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Stability   :  Experimental</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Portability :  Portable</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- | Key management.</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-----------------------------------------------------------------------------</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-pragma">{-# LANGUAGE GADTs             #-}</span><span>
+</span><span id="line-17"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Mantis.Wallet</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-21"></span><span class="annot"><span class="hs-comment">-- * Keys</span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><a href="Mantis.Wallet.html#SomePaymentVerificationKey"><span class="hs-identifier">SomePaymentVerificationKey</span></a></span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Wallet.html#readVerificationKey"><span class="hs-identifier">readVerificationKey</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Wallet.html#readSigningKey"><span class="hs-identifier">readSigningKey</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Wallet.html#makeVerificationKeyHash"><span class="hs-identifier">makeVerificationKeyHash</span></a></span><span>
+</span><span id="line-26"></span><span class="annot"><span class="hs-comment">-- * Addresses</span></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Wallet.html#readAddress"><span class="hs-identifier">readAddress</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Wallet.html#showAddress"><span class="hs-identifier">showAddress</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Wallet.html#showAddressMary"><span class="hs-identifier">showAddressMary</span></a></span><span>
+</span><span id="line-30"></span><span class="annot"><span class="hs-comment">-- * Stake addresses</span></span><span>
+</span><span id="line-31"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Wallet.html#stakeReference"><span class="hs-identifier">stakeReference</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Wallet.html#stakeReferenceMary"><span class="hs-identifier">stakeReferenceMary</span></a></span><span>
+</span><span id="line-33"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">AddressAny</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">AddressInEra</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">AddressTypeInEra</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ShelleyAddressInEra</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">AsType</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Hash</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">MaryEra</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">PaymentExtendedKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">PaymentExtendedKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">PaymentKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ShelleyBasedEra</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ShelleyBasedEraMary</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SigningKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">StakeAddressReference</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">NoStakeAddress</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">VerificationKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">castVerificationKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">deserialiseAddress</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">readFileTextEnvelope</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">serialiseAddress</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">verificationKeyHash</span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MonadIO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Mantis.Types.html"><span class="hs-identifier">Mantis.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Mantis.Types.html#MantisM"><span class="hs-identifier">MantisM</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Types.html#foistMantisEitherIO"><span class="hs-identifier">foistMantisEitherIO</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Types.html#foistMantisMaybe"><span class="hs-identifier">foistMantisMaybe</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.Shelley</span></span><span>  </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Shelley</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Address</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ShelleyAddress</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fromShelleyStakeReference</span></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span>            </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">pack</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">unpack</span></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- | Parse an address.</span><span>
+</span><span id="line-45"></span><span id="local-6989586621679124239"><span class="annot"><a href="Mantis.Wallet.html#readAddress"><span class="hs-identifier hs-type">readAddress</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679124239"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-46"></span><span>            </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>               </span><span class="hs-comment">-- ^ The string representation.</span><span>
+</span><span id="line-47"></span><span>            </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Types.html#MantisM"><span class="hs-identifier hs-type">MantisM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679124239"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressAny</span></span><span> </span><span class="hs-comment">-- ^ Action to parse the address.</span></span><span>
+</span><span id="line-48"></span><span id="readAddress"><span class="annot"><span class="annottext">readAddress :: String -&gt; MantisM m AddressAny
+</span><a href="Mantis.Wallet.html#readAddress"><span class="hs-identifier hs-var hs-var">readAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-49"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Maybe AddressAny -&gt; MantisM m AddressAny
+forall (m :: * -&gt; *) a. Monad m =&gt; String -&gt; Maybe a -&gt; MantisM m a
+</span><a href="Mantis.Types.html#foistMantisMaybe"><span class="hs-identifier hs-var">foistMantisMaybe</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Could not deserialize address.&quot;</span></span><span>
+</span><span id="line-50"></span><span>    </span><span class="annot"><span class="annottext">(Maybe AddressAny -&gt; MantisM m AddressAny)
+-&gt; (String -&gt; Maybe AddressAny) -&gt; String -&gt; MantisM m AddressAny
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">AsType AddressAny -&gt; Text -&gt; Maybe AddressAny
+forall addr.
+SerialiseAddress addr =&gt;
+AsType addr -&gt; Text -&gt; Maybe addr
+</span><span class="hs-identifier hs-var">deserialiseAddress</span></span><span> </span><span class="annot"><span class="annottext">AsType AddressAny
+</span><span class="hs-identifier hs-var">AsAddressAny</span></span><span>
+</span><span id="line-51"></span><span>    </span><span class="annot"><span class="annottext">(Text -&gt; Maybe AddressAny)
+-&gt; (String -&gt; Text) -&gt; String -&gt; Maybe AddressAny
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">T.pack</span></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- | Show an address.</span><span>
+</span><span id="line-55"></span><span class="annot"><a href="Mantis.Wallet.html#showAddress"><span class="hs-identifier hs-type">showAddress</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressAny</span></span><span> </span><span class="hs-comment">-- ^ The address.</span><span>
+</span><span id="line-56"></span><span>            </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>     </span><span class="hs-comment">-- ^ The string representation.</span><span>
+</span><span id="line-57"></span><span id="showAddress"><span class="annot"><span class="annottext">showAddress :: AddressAny -&gt; String
+</span><a href="Mantis.Wallet.html#showAddress"><span class="hs-identifier hs-var hs-var">showAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; String
+</span><span class="hs-identifier hs-var">T.unpack</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; String) -&gt; (AddressAny -&gt; Text) -&gt; AddressAny -&gt; String
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">AddressAny -&gt; Text
+forall addr. SerialiseAddress addr =&gt; addr -&gt; Text
+</span><span class="hs-identifier hs-var">serialiseAddress</span></span><span>
+</span><span id="line-58"></span><span>  </span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- | Show a Mary address.</span><span>
+</span><span id="line-61"></span><span class="annot"><a href="Mantis.Wallet.html#showAddressMary"><span class="hs-identifier hs-type">showAddressMary</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">MaryEra</span></span><span> </span><span class="hs-comment">-- ^ The address.</span><span>
+</span><span id="line-62"></span><span>                </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>               </span><span class="hs-comment">-- ^ The string representation.</span><span>
+</span><span id="line-63"></span><span id="showAddressMary"><span class="annot"><span class="annottext">showAddressMary :: AddressInEra MaryEra -&gt; String
+</span><a href="Mantis.Wallet.html#showAddressMary"><span class="hs-identifier hs-var hs-var">showAddressMary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; String
+</span><span class="hs-identifier hs-var">T.unpack</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; String)
+-&gt; (AddressInEra MaryEra -&gt; Text) -&gt; AddressInEra MaryEra -&gt; String
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">AddressInEra MaryEra -&gt; Text
+forall addr. SerialiseAddress addr =&gt; addr -&gt; Text
+</span><span class="hs-identifier hs-var">serialiseAddress</span></span><span>
+</span><span id="line-64"></span><span>  </span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="hs-comment">-- | A payment verification key.</span><span>
+</span><span id="line-67"></span><span class="hs-keyword">type</span><span> </span><span id="SomePaymentVerificationKey"><span class="annot"><a href="Mantis.Wallet.html#SomePaymentVerificationKey"><span class="hs-identifier hs-var">SomePaymentVerificationKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentExtendedKey</span></span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- | Read a payment verification key.</span><span>
+</span><span id="line-71"></span><span id="local-6989586621679124236"><span class="annot"><a href="Mantis.Wallet.html#readVerificationKey"><span class="hs-identifier hs-type">readVerificationKey</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679124236"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-72"></span><span>                    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>                             </span><span class="hs-comment">-- ^ Path to the key.</span><span>
+</span><span id="line-73"></span><span>                    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Types.html#MantisM"><span class="hs-identifier hs-type">MantisM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679124236"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Mantis.Wallet.html#SomePaymentVerificationKey"><span class="hs-identifier hs-type">SomePaymentVerificationKey</span></a></span><span> </span><span class="hs-comment">-- ^ Action to read the key.</span></span><span>
+</span><span id="line-74"></span><span id="readVerificationKey"><span class="annot"><span class="annottext">readVerificationKey :: String -&gt; MantisM m SomePaymentVerificationKey
+</span><a href="Mantis.Wallet.html#readVerificationKey"><span class="hs-identifier hs-var hs-var">readVerificationKey</span></a></span></span><span> </span><span id="local-6989586621679124234"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679124234"><span class="hs-identifier hs-var">file</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-75"></span><span>  </span><span class="annot"><span class="annottext">IO
+  (Either (FileError TextEnvelopeError) SomePaymentVerificationKey)
+-&gt; MantisM m SomePaymentVerificationKey
+forall (m :: * -&gt; *) e a.
+(MonadIO m, Show e) =&gt;
+IO (Either e a) -&gt; MantisM m a
+</span><a href="Mantis.Types.html#foistMantisEitherIO"><span class="hs-identifier hs-var">foistMantisEitherIO</span></a></span><span>
+</span><span id="line-76"></span><span>    </span><span class="annot"><span class="annottext">(IO
+   (Either (FileError TextEnvelopeError) SomePaymentVerificationKey)
+ -&gt; MantisM m SomePaymentVerificationKey)
+-&gt; IO
+     (Either (FileError TextEnvelopeError) SomePaymentVerificationKey)
+-&gt; MantisM m SomePaymentVerificationKey
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span> </span><span class="hs-comment">-- FIXME: Make this lazy, so the file is only read once.</span><span>
+</span><span id="line-77"></span><span>      </span><span id="local-6989586621679124233"><span class="annot"><span class="annottext">Either (FileError TextEnvelopeError) SomePaymentVerificationKey
+</span><a href="#local-6989586621679124233"><span class="hs-identifier hs-var">extendedKey</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentExtendedKey -&gt; SomePaymentVerificationKey)
+-&gt; Either
+     (FileError TextEnvelopeError) (VerificationKey PaymentExtendedKey)
+-&gt; Either (FileError TextEnvelopeError) SomePaymentVerificationKey
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentExtendedKey -&gt; SomePaymentVerificationKey
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">(Either
+   (FileError TextEnvelopeError) (VerificationKey PaymentExtendedKey)
+ -&gt; Either (FileError TextEnvelopeError) SomePaymentVerificationKey)
+-&gt; IO
+     (Either
+        (FileError TextEnvelopeError) (VerificationKey PaymentExtendedKey))
+-&gt; IO
+     (Either (FileError TextEnvelopeError) SomePaymentVerificationKey)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">AsType (VerificationKey PaymentExtendedKey)
+-&gt; String
+-&gt; IO
+     (Either
+        (FileError TextEnvelopeError) (VerificationKey PaymentExtendedKey))
+forall a.
+HasTextEnvelope a =&gt;
+AsType a -&gt; String -&gt; IO (Either (FileError TextEnvelopeError) a)
+</span><span class="hs-identifier hs-var">readFileTextEnvelope</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AsType PaymentExtendedKey
+-&gt; AsType (VerificationKey PaymentExtendedKey)
+forall a. AsType a -&gt; AsType (VerificationKey a)
+</span><span class="hs-identifier hs-var">AsVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">AsType PaymentExtendedKey
+</span><span class="hs-identifier hs-var">AsPaymentExtendedKey</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679124234"><span class="hs-identifier hs-var">file</span></a></span><span>
+</span><span id="line-78"></span><span>      </span><span id="local-6989586621679124229"><span class="annot"><span class="annottext">Either (FileError TextEnvelopeError) SomePaymentVerificationKey
+</span><a href="#local-6989586621679124229"><span class="hs-identifier hs-var">plainKey</span></a></span></span><span>    </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey -&gt; SomePaymentVerificationKey)
+-&gt; Either
+     (FileError TextEnvelopeError) (VerificationKey PaymentKey)
+-&gt; Either (FileError TextEnvelopeError) SomePaymentVerificationKey
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; SomePaymentVerificationKey
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span>  </span><span class="annot"><span class="annottext">(Either (FileError TextEnvelopeError) (VerificationKey PaymentKey)
+ -&gt; Either (FileError TextEnvelopeError) SomePaymentVerificationKey)
+-&gt; IO
+     (Either (FileError TextEnvelopeError) (VerificationKey PaymentKey))
+-&gt; IO
+     (Either (FileError TextEnvelopeError) SomePaymentVerificationKey)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">AsType (VerificationKey PaymentKey)
+-&gt; String
+-&gt; IO
+     (Either (FileError TextEnvelopeError) (VerificationKey PaymentKey))
+forall a.
+HasTextEnvelope a =&gt;
+AsType a -&gt; String -&gt; IO (Either (FileError TextEnvelopeError) a)
+</span><span class="hs-identifier hs-var">readFileTextEnvelope</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AsType PaymentKey -&gt; AsType (VerificationKey PaymentKey)
+forall a. AsType a -&gt; AsType (VerificationKey a)
+</span><span class="hs-identifier hs-var">AsVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">AsType PaymentKey
+</span><span class="hs-identifier hs-var">AsPaymentKey</span></span><span>        </span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679124234"><span class="hs-identifier hs-var">file</span></a></span><span>
+</span><span id="line-79"></span><span>      </span><span class="annot"><span class="annottext">Either (FileError TextEnvelopeError) SomePaymentVerificationKey
+-&gt; IO
+     (Either (FileError TextEnvelopeError) SomePaymentVerificationKey)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Either (FileError TextEnvelopeError) SomePaymentVerificationKey
+ -&gt; IO
+      (Either (FileError TextEnvelopeError) SomePaymentVerificationKey))
+-&gt; Either (FileError TextEnvelopeError) SomePaymentVerificationKey
+-&gt; IO
+     (Either (FileError TextEnvelopeError) SomePaymentVerificationKey)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Either (FileError TextEnvelopeError) SomePaymentVerificationKey
+</span><a href="#local-6989586621679124233"><span class="hs-identifier hs-var">extendedKey</span></a></span><span> </span><span class="annot"><span class="annottext">Either (FileError TextEnvelopeError) SomePaymentVerificationKey
+-&gt; Either (FileError TextEnvelopeError) SomePaymentVerificationKey
+-&gt; Either (FileError TextEnvelopeError) SomePaymentVerificationKey
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Either (FileError TextEnvelopeError) SomePaymentVerificationKey
+</span><a href="#local-6989586621679124229"><span class="hs-identifier hs-var">plainKey</span></a></span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span class="hs-comment">-- | Compute a verification hash.</span><span>
+</span><span id="line-83"></span><span class="annot"><a href="Mantis.Wallet.html#makeVerificationKeyHash"><span class="hs-identifier hs-type">makeVerificationKeyHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Mantis.Wallet.html#SomePaymentVerificationKey"><span class="hs-identifier hs-type">SomePaymentVerificationKey</span></a></span><span> </span><span class="hs-comment">-- ^ The key.</span><span>
+</span><span id="line-84"></span><span>                        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span>            </span><span class="hs-comment">-- ^ The hash.</span><span>
+</span><span id="line-85"></span><span id="makeVerificationKeyHash"><span class="annot"><span class="annottext">makeVerificationKeyHash :: SomePaymentVerificationKey -&gt; Hash PaymentKey
+</span><a href="Mantis.Wallet.html#makeVerificationKeyHash"><span class="hs-identifier hs-var hs-var">makeVerificationKeyHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-86"></span><span>  </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; Hash PaymentKey
+forall keyrole.
+Key keyrole =&gt;
+VerificationKey keyrole -&gt; Hash keyrole
+</span><span class="hs-identifier hs-var">verificationKeyHash</span></span><span>
+</span><span id="line-87"></span><span>    </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey -&gt; Hash PaymentKey)
+-&gt; (SomePaymentVerificationKey -&gt; VerificationKey PaymentKey)
+-&gt; SomePaymentVerificationKey
+-&gt; Hash PaymentKey
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey -&gt; VerificationKey PaymentKey)
+-&gt; (VerificationKey PaymentExtendedKey
+    -&gt; VerificationKey PaymentKey)
+-&gt; SomePaymentVerificationKey
+-&gt; VerificationKey PaymentKey
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; VerificationKey PaymentKey
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentExtendedKey -&gt; VerificationKey PaymentKey
+forall keyroleA keyroleB.
+CastVerificationKeyRole keyroleA keyroleB =&gt;
+VerificationKey keyroleA -&gt; VerificationKey keyroleB
+</span><span class="hs-identifier hs-var">castVerificationKey</span></span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span class="hs-comment">-- | Read a signing key.</span><span>
+</span><span id="line-91"></span><span id="local-6989586621679124225"><span class="annot"><a href="Mantis.Wallet.html#readSigningKey"><span class="hs-identifier hs-type">readSigningKey</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679124225"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-92"></span><span>               </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>                                  </span><span class="hs-comment">-- ^ Path to the key.</span><span>
+</span><span id="line-93"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Types.html#MantisM"><span class="hs-identifier hs-type">MantisM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679124225"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentExtendedKey</span></span><span class="hs-special">)</span><span> </span><span class="hs-comment">-- ^ Action to read the key.</span></span><span>
+</span><span id="line-94"></span><span id="readSigningKey"><span class="annot"><span class="annottext">readSigningKey :: String -&gt; MantisM m (SigningKey PaymentExtendedKey)
+</span><a href="Mantis.Wallet.html#readSigningKey"><span class="hs-identifier hs-var hs-var">readSigningKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-95"></span><span>  </span><span class="annot"><span class="annottext">IO
+  (Either
+     (FileError TextEnvelopeError) (SigningKey PaymentExtendedKey))
+-&gt; MantisM m (SigningKey PaymentExtendedKey)
+forall (m :: * -&gt; *) e a.
+(MonadIO m, Show e) =&gt;
+IO (Either e a) -&gt; MantisM m a
+</span><a href="Mantis.Types.html#foistMantisEitherIO"><span class="hs-identifier hs-var">foistMantisEitherIO</span></a></span><span>
+</span><span id="line-96"></span><span>    </span><span class="annot"><span class="annottext">(IO
+   (Either
+      (FileError TextEnvelopeError) (SigningKey PaymentExtendedKey))
+ -&gt; MantisM m (SigningKey PaymentExtendedKey))
+-&gt; (String
+    -&gt; IO
+         (Either
+            (FileError TextEnvelopeError) (SigningKey PaymentExtendedKey)))
+-&gt; String
+-&gt; MantisM m (SigningKey PaymentExtendedKey)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">AsType (SigningKey PaymentExtendedKey)
+-&gt; String
+-&gt; IO
+     (Either
+        (FileError TextEnvelopeError) (SigningKey PaymentExtendedKey))
+forall a.
+HasTextEnvelope a =&gt;
+AsType a -&gt; String -&gt; IO (Either (FileError TextEnvelopeError) a)
+</span><span class="hs-identifier hs-var">readFileTextEnvelope</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AsType PaymentExtendedKey -&gt; AsType (SigningKey PaymentExtendedKey)
+forall a. AsType a -&gt; AsType (SigningKey a)
+</span><span class="hs-identifier hs-var">AsSigningKey</span></span><span> </span><span class="annot"><span class="annottext">AsType PaymentExtendedKey
+</span><span class="hs-identifier hs-var">AsPaymentExtendedKey</span></span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span class="hs-comment">-- | Extract a stake address from a payment address.</span><span>
+</span><span id="line-100"></span><span class="annot"><a href="Mantis.Wallet.html#stakeReference"><span class="hs-identifier hs-type">stakeReference</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressAny</span></span><span>            </span><span class="hs-comment">-- ^ The payment address.</span><span>
+</span><span id="line-101"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StakeAddressReference</span></span><span> </span><span class="hs-comment">-- ^ The stake address.</span><span>
+</span><span id="line-102"></span><span id="stakeReference"><span class="annot"><span class="annottext">stakeReference :: AddressAny -&gt; StakeAddressReference
+</span><a href="Mantis.Wallet.html#stakeReference"><span class="hs-identifier hs-var hs-var">stakeReference</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AddressShelley</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Shelley.ShelleyAddress</span></span><span> </span><span class="annot"><span class="annottext">Network
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">PaymentCredential StandardCrypto
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679124222"><span class="annot"><span class="annottext">StakeReference StandardCrypto
+</span><a href="#local-6989586621679124222"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StakeReference StandardCrypto -&gt; StakeAddressReference
+</span><span class="hs-identifier hs-var">Shelley.fromShelleyStakeReference</span></span><span> </span><span class="annot"><span class="annottext">StakeReference StandardCrypto
+</span><a href="#local-6989586621679124222"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-103"></span><span class="annot"><a href="Mantis.Wallet.html#stakeReference"><span class="hs-identifier hs-var">stakeReference</span></a></span><span> </span><span class="annot"><span class="annottext">AddressAny
+</span><span class="hs-identifier">_</span></span><span>                                               </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StakeAddressReference
+</span><span class="hs-identifier hs-var">NoStakeAddress</span></span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span class="hs-comment">-- | Extract a stake address from a payment address.</span><span>
+</span><span id="line-107"></span><span class="annot"><a href="Mantis.Wallet.html#stakeReferenceMary"><span class="hs-identifier hs-type">stakeReferenceMary</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">MaryEra</span></span><span>  </span><span class="hs-comment">-- ^ The payment address.</span><span>
+</span><span id="line-108"></span><span>                   </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StakeAddressReference</span></span><span> </span><span class="hs-comment">-- ^ The stake address.</span><span>
+</span><span id="line-109"></span><span id="stakeReferenceMary"><span class="annot"><span class="annottext">stakeReferenceMary :: AddressInEra MaryEra -&gt; StakeAddressReference
+</span><a href="Mantis.Wallet.html#stakeReferenceMary"><span class="hs-identifier hs-var hs-var">stakeReferenceMary</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyAddressInEra</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra MaryEra
+</span><span class="hs-identifier hs-var">ShelleyBasedEraMary</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Shelley.ShelleyAddress</span></span><span> </span><span class="annot"><span class="annottext">Network
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">PaymentCredential StandardCrypto
+</span><span class="hs-identifier">_</span></span><span>  </span><span id="local-6989586621679124220"><span class="annot"><span class="annottext">StakeReference StandardCrypto
+</span><a href="#local-6989586621679124220"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StakeReference StandardCrypto -&gt; StakeAddressReference
+</span><span class="hs-identifier hs-var">Shelley.fromShelleyStakeReference</span></span><span> </span><span class="annot"><span class="annottext">StakeReference StandardCrypto
+</span><a href="#local-6989586621679124220"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-110"></span><span class="annot"><a href="Mantis.Wallet.html#stakeReferenceMary"><span class="hs-identifier hs-var">stakeReferenceMary</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra MaryEra
+</span><span class="hs-identifier">_</span></span><span>                                                                                        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StakeAddressReference
+</span><span class="hs-identifier hs-var">NoStakeAddress</span></span><span>
+</span><span id="line-111"></span></pre></body></html>

@@ -1,12 +1,29 @@
+-----------------------------------------------------------------------------
+--
+-- Module      :  $Headers
+-- Copyright   :  (c) 2021 Brian W Bush
+-- License     :  MIT
+--
+-- Maintainer  :  Brian W Bush <code@functionally.io>
+-- Stability   :  Experimental
+-- Portability :  Portable
+--
+-- | Querying the blockchain and submitting transactions.
+--
+-----------------------------------------------------------------------------
+
 
 {-# LANGUAGE GADTs #-}
 
 
 module Mantis.Query (
+-- * Querying
   queryProtocol
 , queryTip
 , queryUTxO
+-- * Transactions
 , submitTransaction
+-- * Slots
 , adjustSlot
 ) where
 
@@ -20,13 +37,14 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Type (SubmitResult)
 import qualified Data.Set as S (singleton)
 
 
+-- | Find the tip of the blockchain.
 queryTip
   :: MonadFail m
   => MonadIO m
-  => FilePath
-  -> ConsensusModeParams CardanoMode
-  -> NetworkId
-  -> MantisM m SlotNo
+  => FilePath                        -- ^ Path to the node's socket.
+  -> ConsensusModeParams CardanoMode -- ^ The consensus mode.
+  -> NetworkId                       -- ^ The network.
+  -> MantisM m SlotNo                -- ^ Action to find the slot number.
 queryTip socketPath mode network =
   do
     let
@@ -35,19 +53,21 @@ queryTip socketPath mode network =
     return slotNo
 
 
-adjustSlot :: SlotRef
-           -> SlotNo
-           -> SlotNo
+-- | Compute a slot number.
+adjustSlot :: SlotRef -- ^ The slot reference.
+           -> SlotNo  -- ^ The current tip.
+           -> SlotNo  -- ^ The resultant slot number.
 adjustSlot (AbsoluteSlot slot ) _             = SlotNo $ fromIntegral slot
 adjustSlot (RelativeSlot delta) (SlotNo slot) = SlotNo $ slot + fromIntegral delta
 
 
+-- | Find the protocol parameters.
 queryProtocol :: MonadFail m
               => MonadIO m
-              => FilePath
-              -> ConsensusModeParams CardanoMode
-              -> NetworkId
-              -> MantisM m ProtocolParameters
+              => FilePath                        -- ^ Path to the node's socket.
+              -> ConsensusModeParams CardanoMode -- ^ The consensus mode.
+              -> NetworkId                       -- ^ The network.
+              -> MantisM m ProtocolParameters    -- ^ Action to find the protocol parameters.
 queryProtocol socketPath mode network =
   do
     let
@@ -60,13 +80,14 @@ queryProtocol socketPath mode network =
     foistMantisEither pparams
 
 
+-- | Find UTxOs at an address.
 queryUTxO :: MonadFail m
           => MonadIO m
-          => FilePath
-          -> ConsensusModeParams CardanoMode
-          -> AddressAny
-          -> NetworkId
-          -> MantisM m (UTxO MaryEra)
+          => FilePath                        -- ^ Path to the node's socket.
+          -> ConsensusModeParams CardanoMode -- ^ The consensus mode.
+          -> AddressAny                      -- ^ The address.
+          -> NetworkId                       -- ^ The network.
+          -> MantisM m (UTxO MaryEra)        -- ^ Action to find the UTxOs.
 queryUTxO socketPath mode address network =
   do
     let
@@ -82,12 +103,13 @@ queryUTxO socketPath mode address network =
     foistMantisEither utxo
 
 
+-- | Submit a transaction.
 submitTransaction :: MonadIO m
-                  => FilePath
-                  -> ConsensusModeParams CardanoMode
-                  -> NetworkId
-                  -> Tx MaryEra
-                  -> MantisM m (SubmitResult (TxValidationErrorInMode CardanoMode))
+                  => FilePath                                                       -- ^ Path to the node's socket.
+                  -> ConsensusModeParams CardanoMode                                -- ^ The consensus mode.
+                  -> NetworkId                                                      -- ^ The network.
+                  -> Tx MaryEra                                                     -- ^ The transaction.
+                  -> MantisM m (SubmitResult (TxValidationErrorInMode CardanoMode)) -- ^ Action to submit the transaction and return its result.
 submitTransaction socketPath mode network tx =
   do
     let

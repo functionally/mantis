@@ -31,8 +31,9 @@ command =
 options :: O.Parser Mantis
 options =
   Chain
-    <$>             O.strArgument (                    O.metavar "CONFIG_FILE" <> O.help "Path to configuration file."       )
-    <*> O.optional (O.strOption   $ O.long "output" <> O.metavar "OUTPUT_DIR"  <> O.help "Output directory for script files.")
+    <$>             O.strArgument   (                                       O.metavar "CONFIG_FILE" <> O.help "Path to configuration file."                                      )
+    <*> O.optional (O.strOption     $                 O.long "output"    <> O.metavar "OUTPUT_DIR"  <> O.help "Output directory for script files."                               )
+    <*> O.switch   (                                  O.long "continue"  <>                            O.help "Whether to continue when the current tip of the chain is reached.")
 
 
 main :: MonadFail m
@@ -40,8 +41,9 @@ main :: MonadFail m
      => (String -> IO ())
      -> FilePath
      -> Maybe FilePath
+     -> Bool
      -> MantisM m ()
-main debugIO configFile output =
+main debugIO configFile output continue =
   do
     Configuration{..} <- liftIO $ read <$> readFile configFile
 
@@ -51,7 +53,7 @@ main debugIO configFile output =
     liftIO $ debugIO ""
     liftIO . debugIO $ "Network: " ++ show network
 
-    extractScripts socketPath protocol network
+    extractScripts socketPath protocol network (return $ not continue)
       $ \(BlockHeader slotNo _ _) tx hash script ->
         do
           let

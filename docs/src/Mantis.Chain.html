@@ -1,0 +1,778 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-----------------------------------------------------------------------------</span><span>
+</span><span id="line-2"></span><span class="hs-comment">--</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Module      :  $Headers</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Copyright   :  (c) 2021 Brian W Bush</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- License     :  MIT</span><span>
+</span><span id="line-6"></span><span class="hs-comment">--</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Maintainer  :  Brian W Bush &lt;code@functionally.io&gt;</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Stability   :  Experimental</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Portability :  Portable</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- | Watching activity on the blockchain.</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-----------------------------------------------------------------------------</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-pragma">{-# LANGUAGE GADTs #-}</span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Mantis.Chain</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-20"></span><span class="annot"><span class="hs-comment">-- * Handlers</span></span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><a href="Mantis.Chain.html#Processor"><span class="hs-identifier">Processor</span></a></span><span>
+</span><span id="line-22"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Chain.html#Reverter"><span class="hs-identifier">Reverter</span></a></span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Chain.html#IdleNotifier"><span class="hs-identifier">IdleNotifier</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Chain.html#ScriptHandler"><span class="hs-identifier">ScriptHandler</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Chain.html#TxInHandler"><span class="hs-identifier">TxInHandler</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Chain.html#TxOutHandler"><span class="hs-identifier">TxOutHandler</span></a></span><span>
+</span><span id="line-27"></span><span class="annot"><span class="hs-comment">-- * Activity</span></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Chain.html#walkBlocks"><span class="hs-identifier">walkBlocks</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Chain.html#extractScripts"><span class="hs-identifier">extractScripts</span></a></span><span>
+</span><span id="line-30"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantis.Chain.html#watchTransactions"><span class="hs-identifier">watchTransactions</span></a></span><span>
+</span><span id="line-31"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Block</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">BlockHeader</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">BlockInMode</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">CardanoMode</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ChainPoint</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ChainTip</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ConsensusModeParams</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">EraInMode</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MaryEraInCardanoMode</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">LocalNodeClientProtocols</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">LocalChainSyncClient</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">LocalNodeConnectInfo</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">MaryEra</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">NetworkId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Script</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ScriptHash</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ShelleyBasedEra</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SimpleScriptV2</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TxIn</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TxIx</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TxOut</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TxOutValue</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">connectToLocalNode</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getTxBody</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getTxId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getTxWitnesses</span></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.ChainSync.Client</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ChainSyncClient</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ClientStIdle</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ClientStNext</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.Shelley</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TxBody</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ShelleyTxBody</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fromMaryValue</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fromShelleyAddr</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fromShelleyTxIn</span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Extra</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">whenJust</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MonadIO</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">liftIO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Foldable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">toList</span></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Mantis.Chain.Internal.html"><span class="hs-identifier">Mantis.Chain.Internal</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Mantis.Chain.Internal.html#interpretAsScript"><span class="hs-identifier">interpretAsScript</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Mantis.Transaction.html"><span class="hs-identifier">Mantis.Transaction</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Mantis.Transaction.html#supportedMultiAsset"><span class="hs-identifier">supportedMultiAsset</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Mantis.Types.html"><span class="hs-identifier">Mantis.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Mantis.Types.html#MantisM"><span class="hs-identifier">MantisM</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.ShelleyMA.TxBody</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">LedgerMA</span></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TxBody</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Shelley.Spec.Ledger.TxBody</span></span><span>      </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">ShelleySpec</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TxOut</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- | Process a block.</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">type</span><span> </span><span id="Processor"><span class="annot"><a href="Mantis.Chain.html#Processor"><span class="hs-identifier hs-var">Processor</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>  </span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span> </span><span class="hs-comment">-- ^ The block.</span><span>
+</span><span id="line-50"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainTip</span></span><span>                </span><span class="hs-comment">-- ^ The chain tip.</span><span>
+</span><span id="line-51"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>                   </span><span class="hs-comment">-- ^ Action to process activity.</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- | Handle a rollback.</span><span>
+</span><span id="line-55"></span><span class="hs-keyword">type</span><span> </span><span id="Reverter"><span class="annot"><a href="Mantis.Chain.html#Reverter"><span class="hs-identifier hs-var">Reverter</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ChainPoint</span></span><span> </span><span class="hs-comment">-- ^ The new chain point.</span><span>
+</span><span id="line-56"></span><span>              </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainTip</span></span><span>   </span><span class="hs-comment">-- ^ The chain tip.</span><span>
+</span><span id="line-57"></span><span>              </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>      </span><span class="hs-comment">-- ^ Action to handle the rollback.</span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- | Peform action when idle.</span><span>
+</span><span id="line-61"></span><span class="hs-keyword">type</span><span> </span><span id="IdleNotifier"><span class="annot"><a href="Mantis.Chain.html#IdleNotifier"><span class="hs-identifier hs-var">IdleNotifier</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-comment">-- ^ Action that returns whether processing should terminate.</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="hs-comment">-- | Process activity on the blockchain.</span><span>
+</span><span id="line-65"></span><span id="local-6989586621679124076"><span class="annot"><a href="Mantis.Chain.html#walkBlocks"><span class="hs-identifier hs-type">walkBlocks</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679124076"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-66"></span><span>           </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>                        </span><span class="hs-comment">-- ^ The path to the node's socket.</span><span>
+</span><span id="line-67"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConsensusModeParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span> </span><span class="hs-comment">-- ^ The consensus mode.</span><span>
+</span><span id="line-68"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span>                       </span><span class="hs-comment">-- ^ The network.</span><span>
+</span><span id="line-69"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Chain.html#IdleNotifier"><span class="hs-identifier hs-type">IdleNotifier</span></a></span><span>                    </span><span class="hs-comment">-- ^ Handle idleness.</span><span>
+</span><span id="line-70"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Mantis.Chain.html#Reverter"><span class="hs-identifier hs-type">Reverter</span></a></span><span>                  </span><span class="hs-comment">-- ^ Handle rollbacks.</span><span>
+</span><span id="line-71"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Chain.html#Processor"><span class="hs-identifier hs-type">Processor</span></a></span><span>                       </span><span class="hs-comment">-- ^ Handle blocks.</span><span>
+</span><span id="line-72"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Types.html#MantisM"><span class="hs-identifier hs-type">MantisM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679124076"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>                    </span><span class="hs-comment">-- ^ Action to walk the blockchain.</span></span><span>
+</span><span id="line-73"></span><span id="walkBlocks"><span class="annot"><span class="annottext">walkBlocks :: FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; IdleNotifier
+-&gt; Maybe Reverter
+-&gt; Processor
+-&gt; MantisM m ()
+</span><a href="Mantis.Chain.html#walkBlocks"><span class="hs-identifier hs-var hs-var">walkBlocks</span></a></span></span><span> </span><span id="local-6989586621679124000"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679124000"><span class="hs-identifier hs-var">socketPath</span></a></span></span><span> </span><span id="local-6989586621679123999"><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679123999"><span class="hs-identifier hs-var">mode</span></a></span></span><span> </span><span id="local-6989586621679123998"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679123998"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span id="local-6989586621679123997"><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679123997"><span class="hs-identifier hs-var">notifyIdle</span></a></span></span><span> </span><span id="local-6989586621679123996"><span class="annot"><span class="annottext">Maybe Reverter
+</span><a href="#local-6989586621679123996"><span class="hs-identifier hs-var">revertPoint</span></a></span></span><span> </span><span id="local-6989586621679123995"><span class="annot"><span class="annottext">Processor
+</span><a href="#local-6989586621679123995"><span class="hs-identifier hs-var">processBlock</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-74"></span><span>  </span><span class="hs-keyword">let</span><span>
+</span><span id="line-75"></span><span>    </span><span id="local-6989586621679123994"><span class="annot"><span class="annottext">localNodeConnInfo :: LocalNodeConnectInfo CardanoMode
+</span><a href="#local-6989586621679123994"><span class="hs-identifier hs-var hs-var">localNodeConnInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+-&gt; NetworkId -&gt; FilePath -&gt; LocalNodeConnectInfo CardanoMode
+forall mode.
+ConsensusModeParams mode
+-&gt; NetworkId -&gt; FilePath -&gt; LocalNodeConnectInfo mode
+</span><span class="hs-identifier hs-var">LocalNodeConnectInfo</span></span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679123999"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679123998"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679124000"><span class="hs-identifier hs-var">socketPath</span></a></span><span>
+</span><span id="line-76"></span><span>    </span><span id="local-6989586621679123992"><span class="annot"><span class="annottext">protocols :: LocalNodeClientProtocols
+  (BlockInMode CardanoMode)
+  ChainPoint
+  ChainTip
+  (TxInMode CardanoMode)
+  (TxValidationErrorInMode CardanoMode)
+  (QueryInMode CardanoMode)
+  IO
+</span><a href="#local-6989586621679123992"><span class="hs-identifier hs-var hs-var">protocols</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-77"></span><span>      </span><span class="annot"><span class="annottext">LocalNodeClientProtocols :: forall block point tip tx txerr (query :: * -&gt; *) (m :: * -&gt; *).
+LocalChainSyncClient block point tip m
+-&gt; Maybe (LocalTxSubmissionClient tx txerr m ())
+-&gt; Maybe (LocalStateQueryClient block point query m ())
+-&gt; LocalNodeClientProtocols block point tip tx txerr query m
+</span><span class="hs-identifier hs-type">LocalNodeClientProtocols</span></span><span>
+</span><span id="line-78"></span><span>      </span><span class="hs-special">{</span><span>
+</span><span id="line-79"></span><span>        </span><span class="annot"><span class="annottext">localChainSyncClient :: LocalChainSyncClient
+  (BlockInMode CardanoMode) ChainPoint ChainTip IO
+</span><span class="hs-identifier hs-var">localChainSyncClient</span></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainSyncClient (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+-&gt; LocalChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO
+forall block point tip (m :: * -&gt; *).
+ChainSyncClient block point tip m ()
+-&gt; LocalChainSyncClient block point tip m
+</span><span class="hs-identifier hs-var">LocalChainSyncClient</span></span><span> </span><span class="annot"><span class="annottext">(ChainSyncClient
+   (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+ -&gt; LocalChainSyncClient
+      (BlockInMode CardanoMode) ChainPoint ChainTip IO)
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+-&gt; LocalChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IdleNotifier
+-&gt; Maybe Reverter
+-&gt; Processor
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+</span><a href="Mantis.Chain.html#client"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679123997"><span class="hs-identifier hs-var">notifyIdle</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Reverter
+</span><a href="#local-6989586621679123996"><span class="hs-identifier hs-var">revertPoint</span></a></span><span> </span><span class="annot"><span class="annottext">Processor
+</span><a href="#local-6989586621679123995"><span class="hs-identifier hs-var">processBlock</span></a></span><span>
+</span><span id="line-80"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">localTxSubmissionClient :: Maybe
+  (LocalTxSubmissionClient
+     (TxInMode CardanoMode) (TxValidationErrorInMode CardanoMode) IO ())
+</span><span class="hs-identifier hs-var">localTxSubmissionClient</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe
+  (LocalTxSubmissionClient
+     (TxInMode CardanoMode) (TxValidationErrorInMode CardanoMode) IO ())
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-81"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">localStateQueryClient :: Maybe
+  (LocalStateQueryClient
+     (BlockInMode CardanoMode)
+     ChainPoint
+     (QueryInMode CardanoMode)
+     IO
+     ())
+</span><span class="hs-identifier hs-var">localStateQueryClient</span></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe
+  (LocalStateQueryClient
+     (BlockInMode CardanoMode)
+     ChainPoint
+     (QueryInMode CardanoMode)
+     IO
+     ())
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-82"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-83"></span><span>  </span><span class="hs-keyword">in</span><span>
+</span><span id="line-84"></span><span>    </span><span class="annot"><span class="annottext">IO () -&gt; MantisM m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span>
+</span><span id="line-85"></span><span>      </span><span class="annot"><span class="annottext">(IO () -&gt; MantisM m ()) -&gt; IO () -&gt; MantisM m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">LocalNodeConnectInfo CardanoMode
+-&gt; LocalNodeClientProtocols
+     (BlockInMode CardanoMode)
+     ChainPoint
+     ChainTip
+     (TxInMode CardanoMode)
+     (TxValidationErrorInMode CardanoMode)
+     (QueryInMode CardanoMode)
+     IO
+-&gt; IO ()
+forall mode.
+LocalNodeConnectInfo mode
+-&gt; LocalNodeClientProtocolsInMode mode -&gt; IO ()
+</span><span class="hs-identifier hs-var">connectToLocalNode</span></span><span> </span><span class="annot"><span class="annottext">LocalNodeConnectInfo CardanoMode
+</span><a href="#local-6989586621679123994"><span class="hs-identifier hs-var">localNodeConnInfo</span></a></span><span> </span><span class="annot"><span class="annottext">LocalNodeClientProtocols
+  (BlockInMode CardanoMode)
+  ChainPoint
+  ChainTip
+  (TxInMode CardanoMode)
+  (TxValidationErrorInMode CardanoMode)
+  (QueryInMode CardanoMode)
+  IO
+</span><a href="#local-6989586621679123992"><span class="hs-identifier hs-var">protocols</span></a></span><span>
+</span><span id="line-86"></span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span class="hs-comment">-- | Chain synchronization client.</span><span>
+</span><span id="line-89"></span><span class="annot"><a href="Mantis.Chain.html#client"><span class="hs-identifier hs-type">client</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Mantis.Chain.html#IdleNotifier"><span class="hs-identifier hs-type">IdleNotifier</span></a></span><span>                                                        </span><span class="hs-comment">-- ^ Handle idleness.</span><span>
+</span><span id="line-90"></span><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Mantis.Chain.html#Reverter"><span class="hs-identifier hs-type">Reverter</span></a></span><span>                                                      </span><span class="hs-comment">-- ^ Handle rollbacks.</span><span>
+</span><span id="line-91"></span><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Chain.html#Processor"><span class="hs-identifier hs-type">Processor</span></a></span><span>                                                           </span><span class="hs-comment">-- ^ Handle blocks.</span><span>
+</span><span id="line-92"></span><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainSyncClient</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainPoint</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainTip</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-comment">-- ^ The chain synchronization client.</span><span>
+</span><span id="line-93"></span><span id="client"><span class="annot"><span class="annottext">client :: IdleNotifier
+-&gt; Maybe Reverter
+-&gt; Processor
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+</span><a href="Mantis.Chain.html#client"><span class="hs-identifier hs-var hs-var">client</span></a></span></span><span> </span><span id="local-6989586621679123985"><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679123985"><span class="hs-identifier hs-var">notifyIdle</span></a></span></span><span> </span><span id="local-6989586621679123984"><span class="annot"><span class="annottext">Maybe Reverter
+</span><a href="#local-6989586621679123984"><span class="hs-identifier hs-var">revertPoint</span></a></span></span><span> </span><span id="local-6989586621679123983"><span class="annot"><span class="annottext">Processor
+</span><a href="#local-6989586621679123983"><span class="hs-identifier hs-var">processBlock</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-94"></span><span>  </span><span class="annot"><span class="annottext">IO
+  (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+forall header point tip (m :: * -&gt; *) a.
+m (ClientStIdle header point tip m a)
+-&gt; ChainSyncClient header point tip m a
+</span><span class="hs-identifier hs-var">ChainSyncClient</span></span><span>
+</span><span id="line-95"></span><span>    </span><span class="annot"><span class="annottext">(IO
+   (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+ -&gt; ChainSyncClient
+      (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">let</span><span>
+</span><span id="line-96"></span><span>        </span><span id="local-6989586621679123981"><span class="annot"><span class="annottext">clientStIdle :: IO
+  (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+</span><a href="#local-6989586621679123981"><span class="hs-identifier hs-var hs-var">clientStIdle</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-97"></span><span>          </span><span class="annot"><span class="annottext">ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span>
+</span><span id="line-98"></span><span>            </span><span class="annot"><span class="annottext">(ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+ -&gt; IO
+      (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ()))
+-&gt; (IO
+      (ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+    -&gt; ClientStIdle
+         (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+-&gt; IO
+     (ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+forall header point tip (m :: * -&gt; *) a.
+ClientStNext header point tip m a
+-&gt; m (ClientStNext header point tip m a)
+-&gt; ClientStIdle header point tip m a
+</span><span class="hs-identifier hs-var">SendMsgRequestNext</span></span><span> </span><span class="annot"><span class="annottext">ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+</span><a href="#local-6989586621679123978"><span class="hs-identifier hs-var">clientStNext</span></a></span><span>
+</span><span id="line-99"></span><span>            </span><span class="annot"><span class="annottext">(IO
+   (ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+ -&gt; IO
+      (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ()))
+-&gt; IO
+     (ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-100"></span><span>              </span><span id="local-6989586621679123977"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679123977"><span class="hs-identifier hs-var">terminate</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679123985"><span class="hs-identifier hs-var">notifyIdle</span></a></span><span>
+</span><span id="line-101"></span><span>              </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679123977"><span class="hs-identifier hs-var">terminate</span></a></span><span>
+</span><span id="line-102"></span><span>                </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">IO
+  (ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+forall header point tip. IO (ClientStNext header point tip IO ())
+</span><a href="#local-6989586621679123976"><span class="hs-identifier hs-var">clientDone</span></a></span><span>
+</span><span id="line-103"></span><span>                </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+-&gt; IO
+     (ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+</span><a href="#local-6989586621679123978"><span class="hs-identifier hs-var">clientStNext</span></a></span><span>
+</span><span id="line-104"></span><span>        </span><span id="local-6989586621679123978"><span class="annot"><span class="annottext">clientStNext :: ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+</span><a href="#local-6989586621679123978"><span class="hs-identifier hs-var hs-var">clientStNext</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-105"></span><span>          </span><span class="annot"><span class="annottext">ClientStNext :: forall header point tip (m :: * -&gt; *) a.
+(header -&gt; tip -&gt; ChainSyncClient header point tip m a)
+-&gt; (point -&gt; tip -&gt; ChainSyncClient header point tip m a)
+-&gt; ClientStNext header point tip m a
+</span><span class="hs-identifier hs-type">ClientStNext</span></span><span>
+</span><span id="line-106"></span><span>          </span><span class="hs-special">{</span><span>
+</span><span id="line-107"></span><span>            </span><span class="annot"><span class="annottext">recvMsgRollForward :: BlockInMode CardanoMode
+-&gt; ChainTip
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+</span><span class="hs-identifier hs-var">recvMsgRollForward</span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679123973"><span class="annot"><span class="annottext">BlockInMode CardanoMode
+</span><a href="#local-6989586621679123973"><span class="hs-identifier hs-var">block</span></a></span></span><span> </span><span id="local-6989586621679123972"><span class="annot"><span class="annottext">ChainTip
+</span><a href="#local-6989586621679123972"><span class="hs-identifier hs-var">tip</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO
+  (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+forall header point tip (m :: * -&gt; *) a.
+m (ClientStIdle header point tip m a)
+-&gt; ChainSyncClient header point tip m a
+</span><span class="hs-identifier hs-var">ChainSyncClient</span></span><span> </span><span class="annot"><span class="annottext">(IO
+   (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+ -&gt; ChainSyncClient
+      (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Processor
+</span><a href="#local-6989586621679123983"><span class="hs-identifier hs-var">processBlock</span></a></span><span> </span><span class="annot"><span class="annottext">BlockInMode CardanoMode
+</span><a href="#local-6989586621679123973"><span class="hs-identifier hs-var">block</span></a></span><span> </span><span class="annot"><span class="annottext">ChainTip
+</span><a href="#local-6989586621679123972"><span class="hs-identifier hs-var">tip</span></a></span><span>
+</span><span id="line-108"></span><span>                                                                </span><span class="annot"><span class="annottext">IO ()
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO
+  (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+</span><a href="#local-6989586621679123981"><span class="hs-identifier hs-var">clientStIdle</span></a></span><span>
+</span><span id="line-109"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">recvMsgRollBackward :: ChainPoint
+-&gt; ChainTip
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+</span><span class="hs-identifier hs-var">recvMsgRollBackward</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679123970"><span class="annot"><span class="annottext">ChainPoint
+</span><a href="#local-6989586621679123970"><span class="hs-identifier hs-var">point</span></a></span></span><span> </span><span id="local-6989586621679123969"><span class="annot"><span class="annottext">ChainTip
+</span><a href="#local-6989586621679123969"><span class="hs-identifier hs-var">tip</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO
+  (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+forall header point tip (m :: * -&gt; *) a.
+m (ClientStIdle header point tip m a)
+-&gt; ChainSyncClient header point tip m a
+</span><span class="hs-identifier hs-var">ChainSyncClient</span></span><span> </span><span class="annot"><span class="annottext">(IO
+   (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+ -&gt; ChainSyncClient
+      (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Maybe Reverter -&gt; (Reverter -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a.
+Applicative m =&gt;
+Maybe a -&gt; (a -&gt; m ()) -&gt; m ()
+</span><span class="hs-identifier hs-var">whenJust</span></span><span> </span><span class="annot"><span class="annottext">Maybe Reverter
+</span><a href="#local-6989586621679123984"><span class="hs-identifier hs-var">revertPoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679123968"><span class="annot"><span class="annottext">Reverter
+</span><a href="#local-6989586621679123968"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Reverter
+</span><a href="#local-6989586621679123968"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">ChainPoint
+</span><a href="#local-6989586621679123970"><span class="hs-identifier hs-var">point</span></a></span><span> </span><span class="annot"><span class="annottext">ChainTip
+</span><a href="#local-6989586621679123969"><span class="hs-identifier hs-var">tip</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>                                                                </span><span class="annot"><span class="annottext">IO ()
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO
+  (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+</span><a href="#local-6989586621679123981"><span class="hs-identifier hs-var">clientStIdle</span></a></span><span>
+</span><span id="line-111"></span><span>          </span><span class="hs-special">}</span><span>
+</span><span id="line-112"></span><span>        </span><span id="local-6989586621679123976"><span class="annot"><span class="annottext">clientDone :: IO (ClientStNext header point tip IO ())
+</span><a href="#local-6989586621679123976"><span class="hs-identifier hs-var hs-var">clientDone</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-113"></span><span>          </span><span class="annot"><span class="annottext">ClientStNext header point tip IO ()
+-&gt; IO (ClientStNext header point tip IO ())
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span>
+</span><span id="line-114"></span><span>            </span><span class="annot"><span class="annottext">(ClientStNext header point tip IO ()
+ -&gt; IO (ClientStNext header point tip IO ()))
+-&gt; ClientStNext header point tip IO ()
+-&gt; IO (ClientStNext header point tip IO ())
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ClientStNext :: forall header point tip (m :: * -&gt; *) a.
+(header -&gt; tip -&gt; ChainSyncClient header point tip m a)
+-&gt; (point -&gt; tip -&gt; ChainSyncClient header point tip m a)
+-&gt; ClientStNext header point tip m a
+</span><span class="hs-identifier hs-type">ClientStNext</span></span><span>
+</span><span id="line-115"></span><span>              </span><span class="hs-special">{</span><span>
+</span><span id="line-116"></span><span>                </span><span class="annot"><span class="annottext">recvMsgRollForward :: header -&gt; tip -&gt; ChainSyncClient header point tip IO ()
+</span><span class="hs-identifier hs-var">recvMsgRollForward</span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">header
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">tip
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO (ClientStIdle header point tip IO ())
+-&gt; ChainSyncClient header point tip IO ()
+forall header point tip (m :: * -&gt; *) a.
+m (ClientStIdle header point tip m a)
+-&gt; ChainSyncClient header point tip m a
+</span><span class="hs-identifier hs-var">ChainSyncClient</span></span><span> </span><span class="annot"><span class="annottext">(IO (ClientStIdle header point tip IO ())
+ -&gt; ChainSyncClient header point tip IO ())
+-&gt; (ClientStIdle header point tip IO ()
+    -&gt; IO (ClientStIdle header point tip IO ()))
+-&gt; ClientStIdle header point tip IO ()
+-&gt; ChainSyncClient header point tip IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ClientStIdle header point tip IO ()
+-&gt; IO (ClientStIdle header point tip IO ())
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(ClientStIdle header point tip IO ()
+ -&gt; ChainSyncClient header point tip IO ())
+-&gt; ClientStIdle header point tip IO ()
+-&gt; ChainSyncClient header point tip IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; ClientStIdle header point tip IO ()
+forall a header point tip (m :: * -&gt; *).
+a -&gt; ClientStIdle header point tip m a
+</span><span class="hs-identifier hs-var">SendMsgDone</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-117"></span><span>              </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">recvMsgRollBackward :: point -&gt; tip -&gt; ChainSyncClient header point tip IO ()
+</span><span class="hs-identifier hs-var">recvMsgRollBackward</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">point
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">tip
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO (ClientStIdle header point tip IO ())
+-&gt; ChainSyncClient header point tip IO ()
+forall header point tip (m :: * -&gt; *) a.
+m (ClientStIdle header point tip m a)
+-&gt; ChainSyncClient header point tip m a
+</span><span class="hs-identifier hs-var">ChainSyncClient</span></span><span> </span><span class="annot"><span class="annottext">(IO (ClientStIdle header point tip IO ())
+ -&gt; ChainSyncClient header point tip IO ())
+-&gt; (ClientStIdle header point tip IO ()
+    -&gt; IO (ClientStIdle header point tip IO ()))
+-&gt; ClientStIdle header point tip IO ()
+-&gt; ChainSyncClient header point tip IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ClientStIdle header point tip IO ()
+-&gt; IO (ClientStIdle header point tip IO ())
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(ClientStIdle header point tip IO ()
+ -&gt; ChainSyncClient header point tip IO ())
+-&gt; ClientStIdle header point tip IO ()
+-&gt; ChainSyncClient header point tip IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; ClientStIdle header point tip IO ()
+forall a header point tip (m :: * -&gt; *).
+a -&gt; ClientStIdle header point tip m a
+</span><span class="hs-identifier hs-var">SendMsgDone</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span><span>              </span><span class="hs-special">}</span><span>
+</span><span id="line-119"></span><span>     </span><span class="hs-keyword">in</span><span>
+</span><span id="line-120"></span><span>      </span><span class="annot"><span class="annottext">IO
+  (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+</span><a href="#local-6989586621679123981"><span class="hs-identifier hs-var">clientStIdle</span></a></span><span>
+</span><span id="line-121"></span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span class="hs-comment">-- | Process a script.</span><span>
+</span><span id="line-124"></span><span class="hs-keyword">type</span><span> </span><span id="ScriptHandler"><span class="annot"><a href="Mantis.Chain.html#ScriptHandler"><span class="hs-identifier hs-var">ScriptHandler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>  </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span>           </span><span class="hs-comment">-- ^ The block header.</span><span>
+</span><span id="line-125"></span><span>                   </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">MaryEra</span></span><span>            </span><span class="hs-comment">-- ^ The transaction.</span><span>
+</span><span id="line-126"></span><span>                   </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptHash</span></span><span>            </span><span class="hs-comment">-- ^ The script's hash.</span><span>
+</span><span id="line-127"></span><span>                   </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Script</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleScriptV2</span></span><span> </span><span class="hs-comment">-- ^ The script.</span><span>
+</span><span id="line-128"></span><span>                   </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>                 </span><span class="hs-comment">-- ^ Action to process the script.</span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="hs-comment">-- | Extract scripts from the blockchain.</span><span>
+</span><span id="line-132"></span><span id="local-6989586621679123966"><span class="annot"><a href="Mantis.Chain.html#extractScripts"><span class="hs-identifier hs-type">extractScripts</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679123966"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-133"></span><span>               </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>                        </span><span class="hs-comment">-- ^ Path to the node's socket.</span><span>
+</span><span id="line-134"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConsensusModeParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span> </span><span class="hs-comment">-- ^ Consensus mode.</span><span>
+</span><span id="line-135"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span>                       </span><span class="hs-comment">-- ^ The network.</span><span>
+</span><span id="line-136"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Chain.html#IdleNotifier"><span class="hs-identifier hs-type">IdleNotifier</span></a></span><span>                    </span><span class="hs-comment">-- ^ Handle idleness.</span><span>
+</span><span id="line-137"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Chain.html#ScriptHandler"><span class="hs-identifier hs-type">ScriptHandler</span></a></span><span>                   </span><span class="hs-comment">-- ^ Handle a script.</span><span>
+</span><span id="line-138"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Types.html#MantisM"><span class="hs-identifier hs-type">MantisM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679123966"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>                    </span><span class="hs-comment">-- ^ Action to extract scripts.</span></span><span>
+</span><span id="line-139"></span><span id="extractScripts"><span class="annot"><span class="annottext">extractScripts :: FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; IdleNotifier
+-&gt; ScriptHandler
+-&gt; MantisM m ()
+</span><a href="Mantis.Chain.html#extractScripts"><span class="hs-identifier hs-var hs-var">extractScripts</span></a></span></span><span> </span><span id="local-6989586621679123965"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679123965"><span class="hs-identifier hs-var">socketPath</span></a></span></span><span> </span><span id="local-6989586621679123964"><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679123964"><span class="hs-identifier hs-var">mode</span></a></span></span><span> </span><span id="local-6989586621679123963"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679123963"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span id="local-6989586621679123962"><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679123962"><span class="hs-identifier hs-var">notifyIdle</span></a></span></span><span> </span><span id="local-6989586621679123961"><span class="annot"><span class="annottext">ScriptHandler
+</span><a href="#local-6989586621679123961"><span class="hs-identifier hs-var">handler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-140"></span><span>  </span><span class="annot"><span class="annottext">FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; IdleNotifier
+-&gt; Maybe Reverter
+-&gt; Processor
+-&gt; MantisM m ()
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; IdleNotifier
+-&gt; Maybe Reverter
+-&gt; Processor
+-&gt; MantisM m ()
+</span><a href="Mantis.Chain.html#walkBlocks"><span class="hs-identifier hs-var">walkBlocks</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679123965"><span class="hs-identifier hs-var">socketPath</span></a></span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679123964"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679123963"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679123962"><span class="hs-identifier hs-var">notifyIdle</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Reverter
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-141"></span><span>    </span><span class="annot"><span class="annottext">(Processor -&gt; MantisM m ()) -&gt; Processor -&gt; MantisM m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ScriptHandler -&gt; Processor
+</span><a href="Mantis.Chain.html#processScripts"><span class="hs-identifier hs-var">processScripts</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptHandler
+</span><a href="#local-6989586621679123961"><span class="hs-identifier hs-var">handler</span></a></span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span>
+</span><span id="line-144"></span><span class="hs-comment">-- | Process scripts.</span><span>
+</span><span id="line-145"></span><span class="annot"><a href="Mantis.Chain.html#processScripts"><span class="hs-identifier hs-type">processScripts</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Mantis.Chain.html#ScriptHandler"><span class="hs-identifier hs-type">ScriptHandler</span></a></span><span>           </span><span class="hs-comment">-- ^ Handle a script.</span><span>
+</span><span id="line-146"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span> </span><span class="hs-comment">-- ^ The block.</span><span>
+</span><span id="line-147"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainTip</span></span><span>                </span><span class="hs-comment">-- ^ The chain tip.</span><span>
+</span><span id="line-148"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>                   </span><span class="hs-comment">-- ^ Action to process script.</span><span>
+</span><span id="line-149"></span><span id="processScripts"><span class="annot"><span class="annottext">processScripts :: ScriptHandler -&gt; Processor
+</span><a href="Mantis.Chain.html#processScripts"><span class="hs-identifier hs-var hs-var">processScripts</span></a></span></span><span> </span><span id="local-6989586621679123959"><span class="annot"><span class="annottext">ScriptHandler
+</span><a href="#local-6989586621679123959"><span class="hs-identifier hs-var">handler</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Block</span></span><span> </span><span id="local-6989586621679123956"><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621679123956"><span class="hs-identifier hs-var">header</span></a></span></span><span> </span><span id="local-6989586621679123955"><span class="annot"><span class="annottext">[Tx era]
+</span><a href="#local-6989586621679123955"><span class="hs-identifier hs-var">txs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">EraInMode era CardanoMode
+</span><span class="hs-identifier hs-var">MaryEraInCardanoMode</span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679123954"><span class="annot"><span class="annottext">ChainTip
+</span><a href="#local-6989586621679123954"><span class="hs-identifier hs-var">_tip</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-150"></span><span>  </span><span class="annot"><span class="annottext">[IO ()] -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a.
+(Foldable t, Monad m) =&gt;
+t (m a) -&gt; m ()
+</span><span class="hs-identifier hs-var">sequence_</span></span><span>
+</span><span id="line-151"></span><span>    </span><span class="hs-special">[</span><span>
+</span><span id="line-152"></span><span>      </span><span class="annot"><span class="annottext">Maybe (Script SimpleScriptV2, ScriptHash)
+-&gt; ((Script SimpleScriptV2, ScriptHash) -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a.
+Applicative m =&gt;
+Maybe a -&gt; (a -&gt; m ()) -&gt; m ()
+</span><span class="hs-identifier hs-var">whenJust</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Witness era -&gt; Maybe (Script SimpleScriptV2, ScriptHash)
+forall era.
+Witness era -&gt; Maybe (Script SimpleScriptV2, ScriptHash)
+</span><a href="Mantis.Chain.Internal.html#interpretAsScript"><span class="hs-identifier hs-var">interpretAsScript</span></a></span><span> </span><span class="annot"><span class="annottext">Witness era
+</span><a href="#local-6989586621679123952"><span class="hs-identifier hs-var">witness</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-153"></span><span>        </span><span class="annot"><span class="annottext">(((Script SimpleScriptV2, ScriptHash) -&gt; IO ()) -&gt; IO ())
+-&gt; ((Script SimpleScriptV2, ScriptHash) -&gt; IO ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679123951"><span class="annot"><span class="annottext">Script SimpleScriptV2
+</span><a href="#local-6989586621679123951"><span class="hs-identifier hs-var">script</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679123950"><span class="annot"><span class="annottext">ScriptHash
+</span><a href="#local-6989586621679123950"><span class="hs-identifier hs-var">hash</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ScriptHandler
+</span><a href="#local-6989586621679123959"><span class="hs-identifier hs-var">handler</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621679123956"><span class="hs-identifier hs-var">header</span></a></span><span> </span><span class="annot"><span class="annottext">Tx era
+Tx MaryEra
+</span><a href="#local-6989586621679123949"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptHash
+</span><a href="#local-6989586621679123950"><span class="hs-identifier hs-var">hash</span></a></span><span> </span><span class="annot"><span class="annottext">Script SimpleScriptV2
+</span><a href="#local-6989586621679123951"><span class="hs-identifier hs-var">script</span></a></span><span>
+</span><span id="line-154"></span><span>    </span><span class="hs-glyph">|</span><span>
+</span><span id="line-155"></span><span>      </span><span id="local-6989586621679123949"><span class="annot"><span class="annottext">Tx era
+</span><a href="#local-6989586621679123949"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Tx era]
+</span><a href="#local-6989586621679123955"><span class="hs-identifier hs-var">txs</span></a></span><span>
+</span><span id="line-156"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621679123952"><span class="annot"><span class="annottext">Witness era
+</span><a href="#local-6989586621679123952"><span class="hs-identifier hs-var">witness</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Tx era -&gt; [Witness era]
+forall era. Tx era -&gt; [Witness era]
+</span><span class="hs-identifier hs-var">getTxWitnesses</span></span><span> </span><span class="annot"><span class="annottext">Tx era
+</span><a href="#local-6989586621679123949"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-157"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-158"></span><span class="annot"><a href="Mantis.Chain.html#processScripts"><span class="hs-identifier hs-var">processScripts</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptHandler
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">BlockInMode CardanoMode
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">ChainTip
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-159"></span><span>
+</span><span id="line-160"></span><span>
+</span><span id="line-161"></span><span class="hs-comment">-- | Process a block.</span><span>
+</span><span id="line-162"></span><span class="hs-keyword">type</span><span> </span><span id="BlockHandler"><span class="annot"><a href="Mantis.Chain.html#BlockHandler"><span class="hs-identifier hs-var">BlockHandler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>  </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span> </span><span class="hs-comment">-- ^ The block header.</span><span>
+</span><span id="line-163"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainTip</span></span><span>    </span><span class="hs-comment">-- ^ The chain tip.</span><span>
+</span><span id="line-164"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>       </span><span class="hs-comment">-- ^ Action to process the block.</span><span>
+</span><span id="line-165"></span><span>
+</span><span id="line-166"></span><span>
+</span><span id="line-167"></span><span class="hs-comment">-- | Process a spent UTxO.</span><span>
+</span><span id="line-168"></span><span class="hs-keyword">type</span><span> </span><span id="TxInHandler"><span class="annot"><a href="Mantis.Chain.html#TxInHandler"><span class="hs-identifier hs-var">TxInHandler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>  </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span> </span><span class="hs-comment">-- ^ The block header.</span><span>
+</span><span id="line-169"></span><span>                 </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span>        </span><span class="hs-comment">-- ^ The UTxO.</span><span>
+</span><span id="line-170"></span><span>                 </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>       </span><span class="hs-comment">-- ^ Action to process a spent UTxO.</span><span>
+</span><span id="line-171"></span><span>
+</span><span id="line-172"></span><span>
+</span><span id="line-173"></span><span class="hs-comment">-- | Process a transaction's output.</span><span>
+</span><span id="line-174"></span><span class="hs-keyword">type</span><span> </span><span id="TxOutHandler"><span class="annot"><a href="Mantis.Chain.html#TxOutHandler"><span class="hs-identifier hs-var">TxOutHandler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>  </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span>   </span><span class="hs-comment">-- ^ The block header.</span><span>
+</span><span id="line-175"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">]</span><span>        </span><span class="hs-comment">-- ^ The spent UTxOs.</span><span>
+</span><span id="line-176"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span>          </span><span class="hs-comment">-- ^ The output UTxO.</span><span>
+</span><span id="line-177"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">MaryEra</span></span><span> </span><span class="hs-comment">-- ^ The transaction output.</span><span>
+</span><span id="line-178"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>         </span><span class="hs-comment">-- ^ Action to process a transaction's output.</span><span>
+</span><span id="line-179"></span><span>
+</span><span id="line-180"></span><span>
+</span><span id="line-181"></span><span class="hs-comment">-- | Watch transactions on the blockchain. Note that transaction output is reported *before* spent UTxOs.</span><span>
+</span><span id="line-182"></span><span id="local-6989586621679123948"><span class="annot"><a href="Mantis.Chain.html#watchTransactions"><span class="hs-identifier hs-type">watchTransactions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679123948"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-183"></span><span>                  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>                        </span><span class="hs-comment">-- ^ Path to the node's socket.</span><span>
+</span><span id="line-184"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConsensusModeParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span> </span><span class="hs-comment">-- ^ The consensus mode.</span><span>
+</span><span id="line-185"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span>                       </span><span class="hs-comment">-- ^ The network.</span><span>
+</span><span id="line-186"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Mantis.Chain.html#Reverter"><span class="hs-identifier hs-type">Reverter</span></a></span><span>                  </span><span class="hs-comment">-- ^ Handle rollbacks.</span><span>
+</span><span id="line-187"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Chain.html#IdleNotifier"><span class="hs-identifier hs-type">IdleNotifier</span></a></span><span>                    </span><span class="hs-comment">-- ^ Handle idleness.</span><span>
+</span><span id="line-188"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Chain.html#BlockHandler"><span class="hs-identifier hs-type">BlockHandler</span></a></span><span>                    </span><span class="hs-comment">-- ^ Handle blocks.</span><span>
+</span><span id="line-189"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Chain.html#TxInHandler"><span class="hs-identifier hs-type">TxInHandler</span></a></span><span>                     </span><span class="hs-comment">-- ^ Handle spent UTxOs.</span><span>
+</span><span id="line-190"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Chain.html#TxOutHandler"><span class="hs-identifier hs-type">TxOutHandler</span></a></span><span>                    </span><span class="hs-comment">-- ^ Handle transaction output.</span><span>
+</span><span id="line-191"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Types.html#MantisM"><span class="hs-identifier hs-type">MantisM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679123948"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>                    </span><span class="hs-comment">-- ^ Action to watch transactions.</span></span><span>
+</span><span id="line-192"></span><span id="watchTransactions"><span class="annot"><span class="annottext">watchTransactions :: FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; Maybe Reverter
+-&gt; IdleNotifier
+-&gt; BlockHandler
+-&gt; TxInHandler
+-&gt; TxOutHandler
+-&gt; MantisM m ()
+</span><a href="Mantis.Chain.html#watchTransactions"><span class="hs-identifier hs-var hs-var">watchTransactions</span></a></span></span><span> </span><span id="local-6989586621679123947"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679123947"><span class="hs-identifier hs-var">socketPath</span></a></span></span><span> </span><span id="local-6989586621679123946"><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679123946"><span class="hs-identifier hs-var">mode</span></a></span></span><span> </span><span id="local-6989586621679123945"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679123945"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span id="local-6989586621679123944"><span class="annot"><span class="annottext">Maybe Reverter
+</span><a href="#local-6989586621679123944"><span class="hs-identifier hs-var">revertPoint</span></a></span></span><span> </span><span id="local-6989586621679123943"><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679123943"><span class="hs-identifier hs-var">notifyIdle</span></a></span></span><span> </span><span id="local-6989586621679123942"><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679123942"><span class="hs-identifier hs-var">blockHandler</span></a></span></span><span> </span><span id="local-6989586621679123941"><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679123941"><span class="hs-identifier hs-var">inHandler</span></a></span></span><span> </span><span id="local-6989586621679123940"><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679123940"><span class="hs-identifier hs-var">outHandler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-193"></span><span>  </span><span class="annot"><span class="annottext">FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; IdleNotifier
+-&gt; Maybe Reverter
+-&gt; Processor
+-&gt; MantisM m ()
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; IdleNotifier
+-&gt; Maybe Reverter
+-&gt; Processor
+-&gt; MantisM m ()
+</span><a href="Mantis.Chain.html#walkBlocks"><span class="hs-identifier hs-var">walkBlocks</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679123947"><span class="hs-identifier hs-var">socketPath</span></a></span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679123946"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679123945"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679123943"><span class="hs-identifier hs-var">notifyIdle</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Reverter
+</span><a href="#local-6989586621679123944"><span class="hs-identifier hs-var">revertPoint</span></a></span><span>
+</span><span id="line-194"></span><span>    </span><span class="annot"><span class="annottext">(Processor -&gt; MantisM m ()) -&gt; Processor -&gt; MantisM m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockHandler -&gt; TxInHandler -&gt; TxOutHandler -&gt; Processor
+</span><a href="Mantis.Chain.html#processTransactions"><span class="hs-identifier hs-var">processTransactions</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679123942"><span class="hs-identifier hs-var">blockHandler</span></a></span><span> </span><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679123941"><span class="hs-identifier hs-var">inHandler</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679123940"><span class="hs-identifier hs-var">outHandler</span></a></span><span>
+</span><span id="line-195"></span><span>
+</span><span id="line-196"></span><span>
+</span><span id="line-197"></span><span class="hs-comment">-- | Process transactions.</span><span>
+</span><span id="line-198"></span><span class="annot"><a href="Mantis.Chain.html#processTransactions"><span class="hs-identifier hs-type">processTransactions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Mantis.Chain.html#BlockHandler"><span class="hs-identifier hs-type">BlockHandler</span></a></span><span>            </span><span class="hs-comment">-- ^ Handle blocks.</span><span>
+</span><span id="line-199"></span><span>                    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Chain.html#TxInHandler"><span class="hs-identifier hs-type">TxInHandler</span></a></span><span>             </span><span class="hs-comment">-- ^ Handle spent UTxOs.</span><span>
+</span><span id="line-200"></span><span>                    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Chain.html#TxOutHandler"><span class="hs-identifier hs-type">TxOutHandler</span></a></span><span>            </span><span class="hs-comment">-- ^ Handle transaction output.</span><span>
+</span><span id="line-201"></span><span>                    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span> </span><span class="hs-comment">-- ^ The block.</span><span>
+</span><span id="line-202"></span><span>                    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainTip</span></span><span>                </span><span class="hs-comment">-- ^ The chain tip.</span><span>
+</span><span id="line-203"></span><span>                    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>                   </span><span class="hs-comment">-- ^ Action to process transactions.</span><span>
+</span><span id="line-204"></span><span id="processTransactions"><span class="annot"><span class="annottext">processTransactions :: BlockHandler -&gt; TxInHandler -&gt; TxOutHandler -&gt; Processor
+</span><a href="Mantis.Chain.html#processTransactions"><span class="hs-identifier hs-var hs-var">processTransactions</span></a></span></span><span> </span><span id="local-6989586621679123938"><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679123938"><span class="hs-identifier hs-var">blockHandler</span></a></span></span><span> </span><span id="local-6989586621679123937"><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679123937"><span class="hs-identifier hs-var">inHandler</span></a></span></span><span> </span><span id="local-6989586621679123936"><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679123936"><span class="hs-identifier hs-var">outHandler</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Block</span></span><span> </span><span id="local-6989586621679123935"><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621679123935"><span class="hs-identifier hs-var">header</span></a></span></span><span> </span><span id="local-6989586621679123934"><span class="annot"><span class="annottext">[Tx era]
+</span><a href="#local-6989586621679123934"><span class="hs-identifier hs-var">txs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">EraInMode era CardanoMode
+</span><span class="hs-identifier hs-var">MaryEraInCardanoMode</span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679123933"><span class="annot"><span class="annottext">ChainTip
+</span><a href="#local-6989586621679123933"><span class="hs-identifier hs-var">tip</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-205"></span><span>  </span><span class="hs-keyword">do</span><span>
+</span><span id="line-206"></span><span>    </span><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679123938"><span class="hs-identifier hs-var">blockHandler</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621679123935"><span class="hs-identifier hs-var">header</span></a></span><span> </span><span class="annot"><span class="annottext">ChainTip
+</span><a href="#local-6989586621679123933"><span class="hs-identifier hs-var">tip</span></a></span><span>
+</span><span id="line-207"></span><span>    </span><span class="annot"><span class="annottext">[IO ()] -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a.
+(Foldable t, Monad m) =&gt;
+t (m a) -&gt; m ()
+</span><span class="hs-identifier hs-var">sequence_</span></span><span>
+</span><span id="line-208"></span><span>      </span><span class="hs-special">[</span><span>
+</span><span id="line-209"></span><span>        </span><span class="hs-keyword">do</span><span>
+</span><span id="line-210"></span><span>          </span><span class="annot"><span class="annottext">[IO ()] -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a.
+(Foldable t, Monad m) =&gt;
+t (m a) -&gt; m ()
+</span><span class="hs-identifier hs-var">sequence_</span></span><span>
+</span><span id="line-211"></span><span>            </span><span class="hs-special">[</span><span>
+</span><span id="line-212"></span><span>              </span><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679123936"><span class="hs-identifier hs-var">outHandler</span></a></span><span>
+</span><span id="line-213"></span><span>                </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621679123935"><span class="hs-identifier hs-var">header</span></a></span><span>
+</span><span id="line-214"></span><span>                </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn StandardCrypto -&gt; TxIn
+</span><span class="hs-identifier hs-var">fromShelleyTxIn</span></span><span> </span><span class="annot"><span class="annottext">(TxIn StandardCrypto -&gt; TxIn) -&gt; [TxIn StandardCrypto] -&gt; [TxIn]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Set (TxIn StandardCrypto) -&gt; [TxIn StandardCrypto]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
+</span><span class="hs-identifier hs-var">toList</span></span><span> </span><span class="annot"><span class="annottext">Set (TxIn StandardCrypto)
+</span><a href="#local-6989586621679123931"><span class="hs-identifier hs-var">txins</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-215"></span><span>                </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxId -&gt; TxIx -&gt; TxIn
+</span><span class="hs-identifier hs-var">TxIn</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxBody era -&gt; TxId
+forall era. TxBody era -&gt; TxId
+</span><span class="hs-identifier hs-var">getTxId</span></span><span> </span><span class="annot"><span class="annottext">TxBody era
+</span><a href="#local-6989586621679123929"><span class="hs-identifier hs-var">body</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word -&gt; TxIx
+</span><span class="hs-identifier hs-var">TxIx</span></span><span> </span><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679123927"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-216"></span><span>                </span><span class="annot"><span class="annottext">(TxOut MaryEra -&gt; IO ()) -&gt; TxOut MaryEra -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">AddressInEra MaryEra -&gt; TxOutValue MaryEra -&gt; TxOut MaryEra
+forall era. AddressInEra era -&gt; TxOutValue era -&gt; TxOut era
+</span><span class="hs-identifier hs-var">TxOut</span></span><span>
+</span><span id="line-217"></span><span>                  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Addr StandardCrypto -&gt; AddressInEra MaryEra
+forall era.
+IsShelleyBasedEra era =&gt;
+Addr StandardCrypto -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">fromShelleyAddr</span></span><span> </span><span class="annot"><span class="annottext">Addr (Crypto (ShelleyMAEra 'Mary StandardCrypto))
+Addr StandardCrypto
+</span><a href="#local-6989586621679123925"><span class="hs-identifier hs-var">address</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-218"></span><span>                  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MultiAssetSupportedInEra MaryEra -&gt; Value -&gt; TxOutValue MaryEra
+forall era. MultiAssetSupportedInEra era -&gt; Value -&gt; TxOutValue era
+</span><span class="hs-identifier hs-var">TxOutValue</span></span><span> </span><span class="annot"><span class="annottext">MultiAssetSupportedInEra MaryEra
+</span><a href="Mantis.Transaction.html#supportedMultiAsset"><span class="hs-identifier hs-var">supportedMultiAsset</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value StandardCrypto -&gt; Value
+</span><span class="hs-identifier hs-var">fromMaryValue</span></span><span> </span><span class="annot"><span class="annottext">Value (ShelleyMAEra 'Mary StandardCrypto)
+Value StandardCrypto
+</span><a href="#local-6989586621679123923"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-219"></span><span>            </span><span class="hs-glyph">|</span><span>
+</span><span id="line-220"></span><span>              </span><span class="hs-special">(</span><span id="local-6989586621679123927"><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679123927"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679123922"><span class="annot"><span class="annottext">TxOut (ShelleyMAEra 'Mary StandardCrypto)
+</span><a href="#local-6989586621679123922"><span class="hs-identifier hs-var">txout</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Word]
+-&gt; [TxOut (ShelleyMAEra 'Mary StandardCrypto)]
+-&gt; [(Word, TxOut (ShelleyMAEra 'Mary StandardCrypto))]
+forall a b. [a] -&gt; [b] -&gt; [(a, b)]
+</span><span class="hs-identifier hs-var">zip</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">0</span></span><span class="hs-glyph">..</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">([TxOut (ShelleyMAEra 'Mary StandardCrypto)]
+ -&gt; [(Word, TxOut (ShelleyMAEra 'Mary StandardCrypto))])
+-&gt; [TxOut (ShelleyMAEra 'Mary StandardCrypto)]
+-&gt; [(Word, TxOut (ShelleyMAEra 'Mary StandardCrypto))]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">StrictSeq (TxOut (ShelleyMAEra 'Mary StandardCrypto))
+-&gt; [TxOut (ShelleyMAEra 'Mary StandardCrypto)]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
+</span><span class="hs-identifier hs-var">toList</span></span><span> </span><span class="annot"><span class="annottext">StrictSeq (TxOut (ShelleyMAEra 'Mary StandardCrypto))
+</span><a href="#local-6989586621679123921"><span class="hs-identifier hs-var">txouts</span></a></span><span>
+</span><span id="line-221"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">let</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ShelleySpec.TxOut</span></span><span> </span><span id="local-6989586621679123925"><span class="annot"><span class="annottext">Addr (Crypto (ShelleyMAEra 'Mary StandardCrypto))
+</span><a href="#local-6989586621679123925"><span class="hs-identifier hs-var">address</span></a></span></span><span> </span><span id="local-6989586621679123923"><span class="annot"><span class="annottext">Value (ShelleyMAEra 'Mary StandardCrypto)
+</span><a href="#local-6989586621679123923"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxOut (ShelleyMAEra 'Mary StandardCrypto)
+</span><a href="#local-6989586621679123922"><span class="hs-identifier hs-var">txout</span></a></span><span>
+</span><span id="line-222"></span><span>            </span><span class="hs-special">]</span><span>
+</span><span id="line-223"></span><span>          </span><span class="annot"><span class="annottext">[IO ()] -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a.
+(Foldable t, Monad m) =&gt;
+t (m a) -&gt; m ()
+</span><span class="hs-identifier hs-var">sequence_</span></span><span>
+</span><span id="line-224"></span><span>            </span><span class="hs-special">[</span><span>
+</span><span id="line-225"></span><span>              </span><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679123937"><span class="hs-identifier hs-var">inHandler</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621679123935"><span class="hs-identifier hs-var">header</span></a></span><span> </span><span class="annot"><span class="annottext">(TxIn -&gt; IO ()) -&gt; TxIn -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TxIn StandardCrypto -&gt; TxIn
+</span><span class="hs-identifier hs-var">fromShelleyTxIn</span></span><span> </span><span class="annot"><span class="annottext">TxIn StandardCrypto
+</span><a href="#local-6989586621679123919"><span class="hs-identifier hs-var">txin</span></a></span><span>
+</span><span id="line-226"></span><span>            </span><span class="hs-glyph">|</span><span>
+</span><span id="line-227"></span><span>              </span><span id="local-6989586621679123919"><span class="annot"><span class="annottext">TxIn StandardCrypto
+</span><a href="#local-6989586621679123919"><span class="hs-identifier hs-var">txin</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Set (TxIn StandardCrypto) -&gt; [TxIn StandardCrypto]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
+</span><span class="hs-identifier hs-var">toList</span></span><span> </span><span class="annot"><span class="annottext">Set (TxIn StandardCrypto)
+</span><a href="#local-6989586621679123931"><span class="hs-identifier hs-var">txins</span></a></span><span>
+</span><span id="line-228"></span><span>            </span><span class="hs-special">]</span><span>
+</span><span id="line-229"></span><span>      </span><span class="hs-glyph">|</span><span>
+</span><span id="line-230"></span><span>        </span><span id="local-6989586621679123918"><span class="annot"><span class="annottext">Tx era
+</span><a href="#local-6989586621679123918"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Tx era]
+</span><a href="#local-6989586621679123934"><span class="hs-identifier hs-var">txs</span></a></span><span>
+</span><span id="line-231"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679123929"><span class="annot"><span class="annottext">body :: TxBody era
+</span><a href="#local-6989586621679123929"><span class="hs-identifier hs-var hs-var">body</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx era -&gt; TxBody era
+forall era. Tx era -&gt; TxBody era
+</span><span class="hs-identifier hs-var">getTxBody</span></span><span> </span><span class="annot"><span class="annottext">Tx era
+</span><a href="#local-6989586621679123918"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-232"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">ShelleyTxBody</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">ShelleyBasedEraMary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">LedgerMA.TxBody</span></span><span> </span><span id="local-6989586621679123931"><span class="annot"><a href="#local-6989586621679123931"><span class="hs-identifier hs-var">txins</span></a></span></span><span> </span><span id="local-6989586621679123921"><span class="annot"><a href="#local-6989586621679123921"><span class="hs-identifier hs-var">txouts</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe (AuxiliaryData (ShelleyLedgerEra era))
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxBody era
+</span><a href="#local-6989586621679123929"><span class="hs-identifier hs-var">body</span></a></span><span>
+</span><span id="line-233"></span><span>      </span><span class="hs-special">]</span><span>
+</span><span id="line-234"></span><span class="annot"><a href="Mantis.Chain.html#processTransactions"><span class="hs-identifier hs-var">processTransactions</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHandler
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">TxInHandler
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">TxOutHandler
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">BlockInMode CardanoMode
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">ChainTip
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-235"></span></pre></body></html>

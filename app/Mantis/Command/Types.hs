@@ -83,5 +83,19 @@ data Mantis =
     {
       configFile      :: FilePath
     , outputDirectory :: Maybe FilePath
+    , continue        :: Bool
+    }
+  | WatchAddress
+    {
+      configFile  :: FilePath
+    , addresses   :: [String]
+    , continue    :: Bool
+    }
+  | WatchCoin
+    {
+      configFile :: FilePath
+    , policyId   :: String
+    , assetName' :: Maybe String
+    , continue   :: Bool
     }
     deriving (Eq, Ord, Read, Show)

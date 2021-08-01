@@ -1,3 +1,17 @@
+-----------------------------------------------------------------------------
+--
+-- Module      :  $Headers
+-- Copyright   :  (c) 2021 Brian W Bush
+-- License     :  MIT
+--
+-- Maintainer  :  Brian W Bush <code@functionally.io>
+-- Stability   :  Experimental
+-- Portability :  Portable
+--
+-- | Handling transactions.
+--
+-----------------------------------------------------------------------------
+
 
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE GADTs             #-}
@@ -6,15 +20,20 @@
 
 
 module Mantis.Transaction (
+-- * Transactions
   makeTransaction
 , includeFee
-, supportedMultiAsset
+-- * Metadata
 , readMetadata
+-- * Printing
 , printUTxO
 , printValue
+, printValueIO
 , summarizeValues
+-- * Minting
 , makeMinting
 , readMinting
+, supportedMultiAsset
 ) where
 
 
@@ -31,32 +50,38 @@ import qualified Data.Map.Strict       as M  (assocs)
 import qualified Data.Text             as T  (pack, unpack)
 
 
+-- | The Mary era supports having no upper bound.
 supportedNoUpperBound :: ValidityNoUpperBoundSupportedInEra MaryEra
 Just supportedNoUpperBound = validityNoUpperBoundSupportedInEra MaryEra
 
 
+-- | The Mary era support upper bounds.
 supportedUpperBound :: ValidityUpperBoundSupportedInEra MaryEra
 Just supportedUpperBound = validityUpperBoundSupportedInEra MaryEra
 
 
+-- | The Mary era supports multi-assets.
 supportedMultiAsset :: MultiAssetSupportedInEra MaryEra
 Right supportedMultiAsset = multiAssetSupportedInEra MaryEra
 
 
+-- | The Mary era supports scripts.
 supportedScripts :: AuxScriptsSupportedInEra MaryEra
 Just supportedScripts = auxScriptsSupportedInEra MaryEra
 
 
+-- | The Mary era has explicit fees.
 explicitFees :: TxFeesExplicitInEra MaryEra
 Right explicitFees = txFeesExplicitInEra MaryEra
 
 
-makeTransaction :: [TxIn]
-                -> [TxOut MaryEra]
-                -> Maybe SlotNo
-                -> Maybe TxMetadata
-                -> Maybe (ScriptInEra MaryEra)
-                -> Maybe Value
+-- | Build a transaction.
+makeTransaction :: [TxIn]                      -- ^ The UTxOs to be spent.
+                -> [TxOut MaryEra]             -- ^ The output UTxOs.
+                -> Maybe SlotNo                -- ^ The latest slot for the transaction.
+                -> Maybe TxMetadata            -- ^ The metadata.
+                -> Maybe (ScriptInEra MaryEra) -- ^ The script
+                -> Maybe Value                 -- ^ The value to be minted.
                 -> TxBodyContent MaryEra
 makeTransaction txIns txOuts before metadata script minting =
   let
@@ -78,16 +103,17 @@ makeTransaction txIns txOuts before metadata script minting =
     TxBodyContent{..}
 
 
+-- | Include the fee in a transaction.
 includeFee :: MonadFail m
            => MonadIO m
-           => NetworkId
-           -> ProtocolParameters
-           -> Int
-           -> Int
-           -> Int
-           -> Int
-           -> TxBodyContent MaryEra
-           -> MantisM m (TxBodyContent MaryEra)
+           => NetworkId                         -- ^ The network.
+           -> ProtocolParameters                -- ^ The protocol parameters.
+           -> Int                               -- ^ The number of inputs.
+           -> Int                               -- ^ The number of outputs.
+           -> Int                               -- ^ The number of Shelley witnesses.
+           -> Int                               -- ^ The number of Byron witnesses.
+           -> TxBodyContent MaryEra             -- ^ The transaction body.
+           -> MantisM m (TxBodyContent MaryEra) -- ^ Action for the transaction body with fee included.
 includeFee network pparams nIn nOut nShelley nByron content =
   do
     body <- foistMantisEither $ makeTransactionBody content
@@ -110,9 +136,10 @@ includeFee network pparams nIn nOut nShelley nByron content =
         }
 
 
+-- | Read JSON metadata from a file.
 readMetadata' :: MonadIO m
-              => FilePath
-              -> MantisM m (A.Value, TxMetadata)
+              => FilePath                        -- ^ Path to the metadata file.
+              -> MantisM m (A.Value, TxMetadata) -- ^ Action for reading the file as JSON and metadata.
 readMetadata' filename =
   do
     json <-
@@ -124,16 +151,18 @@ readMetadata' filename =
     return (json, metadata)
 
 
+-- | Read JSON metadata from a file.
 readMetadata :: MonadIO m
-             => FilePath
-             -> MantisM m TxMetadata
+             => FilePath             -- ^ Path to the metadata file.
+             -> MantisM m TxMetadata -- ^ Action for reading the file as metadata.
 readMetadata = fmap snd . readMetadata'
 
 
+-- | Print information about a UTxO.
 printUTxO :: MonadIO m
-          => String
-          -> UTxO MaryEra
-          -> MantisM m ()
+          => String       -- ^ How much to indent the output.
+          -> UTxO MaryEra -- ^ The UTxO.
+          -> MantisM m () -- ^ Action to print the information.
 printUTxO indent (UTxO utxoMap) =
   sequence_
     [
@@ -147,28 +176,39 @@ printUTxO indent (UTxO utxoMap) =
     ]
 
 
+-- | Print a value.
 printValue :: MonadIO m
-           => String
-           -> Value
-           -> MantisM m ()
-printValue indent value =
-  liftIO
-    $ do
-      putStrLn $ indent ++ show (selectLovelace value) ++ " Lovelace"
-      sequence_
-        [
-          putStrLn $ indent ++ show quantity ++ "  " ++ show' policy ++ "." ++ show' asset
-        |
-          (AssetId (PolicyId policy) (AssetName asset), quantity) <- valueToList $ filterValue (/= AdaAssetId) value
-        ]
+           => String       -- ^ How much to indent the output.
+           -> Value        -- ^ The value.
+           -> MantisM m () -- ^ Action to print the information.
+printValue = (liftIO .) . printValueIO
 
 
-show' :: Show a => a -> String
+-- | Print a value.
+printValueIO :: String
+             -> Value -- ^ The value.
+             -> IO () -- ^ Action to print the information.
+printValueIO indent value =
+  do
+    putStrLn $ indent ++ show (selectLovelace value)
+    sequence_
+      [
+        putStrLn $ indent ++ show quantity ++ "  " ++ show' policy ++ "." ++ show' asset
+      |
+        (AssetId (PolicyId policy) (AssetName asset), quantity) <- valueToList $ filterValue (/= AdaAssetId) value
+      ]
+
+
+-- | Strip a leading and trailing quotation mark when showing a string.
+show' :: Show a
+      => a      -- ^ The value.
+      -> String -- ^ The string represenation.
 show' = init . tail . show
 
 
-summarizeValues :: UTxO MaryEra
-                -> (Int, Value)
+-- | Summarize the values in a UTxO.
+summarizeValues :: UTxO MaryEra -- ^ The UTxO.
+                -> (Int, Value) -- ^ The number of values and their total.
 summarizeValues (UTxO utxoMap) =
   let
     values =  
@@ -181,13 +221,13 @@ summarizeValues (UTxO utxoMap) =
     (length values, mconcat values)
 
 
-
-makeMinting :: Value
-            -> String
-            -> Integer
-            -> Hash PaymentKey
-            -> Maybe SlotNo
-            -> (ScriptInEra MaryEra, Value, Value)
+-- | Prepare a minting script.
+makeMinting :: Value                               -- ^ The value to which minting will be added.
+            -> String                              -- ^ The asset name.
+            -> Integer                             -- ^ The number of tokens to omit.
+            -> Hash PaymentKey                     -- ^ Hash of the payment key.
+            -> Maybe SlotNo                        -- ^ The last slot number for minting.
+            -> (ScriptInEra MaryEra, Value, Value) -- ^ The minting script, value minted, and total value.
 makeMinting value name count verification before =
   let
     (script, scriptHash) = mintingScript verification before
@@ -204,11 +244,12 @@ makeMinting value name count verification before =
     )
 
 
+-- | Prepare for minting from a JSON file specifying NFTs.
 readMinting :: MonadFail m
             => MonadIO m
-            => PolicyId
-            -> FilePath
-            -> MantisM m (A.Value, TxMetadata, Value)
+            => PolicyId                               -- ^ The policy ID.
+            -> FilePath                               -- ^ Path to the metadata file.
+            -> MantisM m (A.Value, TxMetadata, Value) -- ^ Action reading the metadata file and returning the JSON, metadata, and value for minting.
 readMinting policyId filename =
   do
     A.Object json <-
