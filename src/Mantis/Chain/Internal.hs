@@ -1,4 +1,20 @@
+-----------------------------------------------------------------------------
+--
+-- Module      :  $Headers
+-- Copyright   :  (c) 2021 Brian W Bush
+-- License     :  MIT
+--
+-- Maintainer  :  Brian W Bush <code@functionally.io>
+-- Stability   :  Experimental
+-- Portability :  Portable
+--
+-- | Extracting scripts from witnesses.
+--
+-----------------------------------------------------------------------------
+
+
 module Mantis.Chain.Internal (
+-- * Scripts
   interpretAsScript
 , toScript
 , toSimpleScriptV2
@@ -14,8 +30,9 @@ import qualified Data.ByteString.Char8 as BS  (pack)
 import qualified Cardano.Api           as API
 
 
-interpretAsScript :: API.Witness era
-                  -> Maybe (API.Script API.SimpleScriptV2, API.ScriptHash)
+-- | Convert a witness to a script.
+interpretAsScript :: API.Witness era                                       -- ^ The witness.
+                  -> Maybe (API.Script API.SimpleScriptV2, API.ScriptHash) -- ^ The script and its hash, if the witness was a script.
 interpretAsScript witness = 
   do
     let
@@ -26,8 +43,9 @@ interpretAsScript witness =
       <$> toSimpleScriptV2 text
 
 
-toScript :: API.SimpleScript API.SimpleScriptV2
-         -> (API.Script API.SimpleScriptV2, API.ScriptHash)
+-- | Convert a simple script to a script and its hash.
+toScript :: API.SimpleScript API.SimpleScriptV2             -- ^ The simple script.
+         -> (API.Script API.SimpleScriptV2, API.ScriptHash) -- ^ The script and its hash.
 toScript script = 
   let
     script' = API.SimpleScript API.SimpleScriptV2 script
@@ -38,8 +56,9 @@ toScript script =
     )
 
 
-toSimpleScriptV2 :: String
-                 -> Maybe (API.SimpleScript API.SimpleScriptV2)
+-- | Parse a string representation of a simple script.
+toSimpleScriptV2 :: String                                      -- ^ The string representation.
+                 -> Maybe (API.SimpleScript API.SimpleScriptV2) -- ^ The simple script, if the parsing succeeded.
 toSimpleScriptV2 =
   rewriteScript
     . read
@@ -47,6 +66,9 @@ toSimpleScriptV2 =
     . replace "ShelleyScriptWitness ShelleyBasedEraMary (" ""
     . replace "TimelockConstr " ""
     . replace "fromList " ""
+
+
+-- Functions for parsing scripts.
 
 
 rewriteScript :: Timelock -> Maybe (API.SimpleScript API.SimpleScriptV2)

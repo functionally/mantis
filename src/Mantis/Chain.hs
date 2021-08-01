@@ -1,15 +1,32 @@
+-----------------------------------------------------------------------------
+--
+-- Module      :  $Headers
+-- Copyright   :  (c) 2021 Brian W Bush
+-- License     :  MIT
+--
+-- Maintainer  :  Brian W Bush <code@functionally.io>
+-- Stability   :  Experimental
+-- Portability :  Portable
+--
+-- | Watching activity on the blockchain.
+--
+-----------------------------------------------------------------------------
+
+
 {-# LANGUAGE GADTs #-}
 
 
 module Mantis.Chain (
+-- * Handlers
   Processor
 , Reverter
 , IdleNotifier
-, walkBlocks
 , ScriptHandler
-, extractScripts
 , TxInHandler
 , TxOutHandler
+-- * Activity
+, walkBlocks
+, extractScripts
 , watchTransactions
 ) where
 
@@ -28,27 +45,31 @@ import qualified Cardano.Ledger.ShelleyMA.TxBody as LedgerMA    (TxBody(..))
 import qualified Shelley.Spec.Ledger.TxBody      as ShelleySpec (TxOut(..))
 
 
-type Processor =  BlockInMode CardanoMode
-               -> ChainTip
-               -> IO ()
+-- | Process a block.
+type Processor =  BlockInMode CardanoMode -- ^ The block.
+               -> ChainTip                -- ^ The chain tip.
+               -> IO ()                   -- ^ Action to process activity.
 
 
-type Reverter =  ChainPoint
-              -> ChainTip
-              -> IO ()
+-- | Handle a rollback.
+type Reverter =  ChainPoint -- ^ The new chain point.
+              -> ChainTip   -- ^ The chain tip.
+              -> IO ()      -- ^ Action to handle the rollback.
 
 
-type IdleNotifier = IO Bool
+-- | Peform action when idle.
+type IdleNotifier = IO Bool -- ^ Action that returns whether processing should terminate.
 
 
+-- | Process activity on the blockchain.
 walkBlocks :: MonadIO m
-           => FilePath
-           -> ConsensusModeParams CardanoMode
-           -> NetworkId
-           -> IdleNotifier
-           -> Maybe Reverter
-           -> Processor
-           -> MantisM m ()
+           => FilePath                        -- ^ The path to the node's socket.
+           -> ConsensusModeParams CardanoMode -- ^ The consensus mode.
+           -> NetworkId                       -- ^ The network.
+           -> IdleNotifier                    -- ^ Handle idleness.
+           -> Maybe Reverter                  -- ^ Handle rollbacks.
+           -> Processor                       -- ^ Handle blocks.
+           -> MantisM m ()                    -- ^ Action to walk the blockchain.
 walkBlocks socketPath mode network notifyIdle revertPoint processBlock =
   let
     localNodeConnInfo = LocalNodeConnectInfo mode network socketPath
@@ -64,10 +85,11 @@ walkBlocks socketPath mode network notifyIdle revertPoint processBlock =
       $ connectToLocalNode localNodeConnInfo protocols
 
 
-client :: IdleNotifier
-       -> Maybe Reverter
-       -> Processor
-       -> ChainSyncClient (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+-- | Chain synchronization client.
+client :: IdleNotifier                                                        -- ^ Handle idleness.
+       -> Maybe Reverter                                                      -- ^ Handle rollbacks.
+       -> Processor                                                           -- ^ Handle blocks.
+       -> ChainSyncClient (BlockInMode CardanoMode) ChainPoint ChainTip IO () -- ^ The chain synchronization client.
 client notifyIdle revertPoint processBlock =
   ChainSyncClient
     $ let
@@ -98,29 +120,32 @@ client notifyIdle revertPoint processBlock =
       clientStIdle
 
 
-type ScriptHandler =  BlockHeader
-                   -> Tx MaryEra
-                   -> ScriptHash
-                   -> Script SimpleScriptV2
-                   -> IO ()
+-- | Process a script.
+type ScriptHandler =  BlockHeader           -- ^ The block header.
+                   -> Tx MaryEra            -- ^ The transaction.
+                   -> ScriptHash            -- ^ The script's hash.
+                   -> Script SimpleScriptV2 -- ^ The script.
+                   -> IO ()                 -- ^ Action to process the script.
 
 
+-- | Extract scripts from the blockchain.
 extractScripts :: MonadIO m
-               => FilePath
-               -> ConsensusModeParams CardanoMode
-               -> NetworkId
-               -> IdleNotifier
-               -> (BlockHeader -> Tx MaryEra -> ScriptHash -> Script SimpleScriptV2 -> IO ())
-               -> MantisM m ()
+               => FilePath                        -- ^ Path to the node's socket.
+               -> ConsensusModeParams CardanoMode -- ^ Consensus mode.
+               -> NetworkId                       -- ^ The network.
+               -> IdleNotifier                    -- ^ Handle idleness.
+               -> ScriptHandler                   -- ^ Handle a script.
+               -> MantisM m ()                    -- ^ Action to extract scripts.
 extractScripts socketPath mode network notifyIdle handler =
   walkBlocks socketPath mode network notifyIdle Nothing
     $ processScripts handler
 
 
-processScripts :: (BlockHeader -> Tx MaryEra -> ScriptHash -> Script SimpleScriptV2 -> IO ())
-               -> BlockInMode CardanoMode
-               -> ChainTip
-               -> IO ()
+-- | Process scripts.
+processScripts :: ScriptHandler           -- ^ Handle a script.
+               -> BlockInMode CardanoMode -- ^ The block.
+               -> ChainTip                -- ^ The chain tip.
+               -> IO ()                   -- ^ Action to process script.
 processScripts handler (BlockInMode (Block header txs) MaryEraInCardanoMode) _tip =
   sequence_
     [
@@ -133,44 +158,49 @@ processScripts handler (BlockInMode (Block header txs) MaryEraInCardanoMode) _ti
 processScripts _ _ _ = return ()
 
 
-type BlockHandler =  BlockHeader
-                  -> ChainTip
-                  -> IO ()
+-- | Process a block.
+type BlockHandler =  BlockHeader -- ^ The block header.
+                  -> ChainTip    -- ^ The chain tip.
+                  -> IO ()       -- ^ Action to process the block.
 
 
-type TxInHandler =  BlockHeader
-                 -> TxIn
-                 -> IO ()
+-- | Process a spent UTxO.
+type TxInHandler =  BlockHeader -- ^ The block header.
+                 -> TxIn        -- ^ The UTxO.
+                 -> IO ()       -- ^ Action to process a spent UTxO.
 
 
-type TxOutHandler =  BlockHeader
-                  -> [TxIn]
-                  -> TxIn
-                  -> TxOut MaryEra
-                  -> IO ()
+-- | Process a transaction's output.
+type TxOutHandler =  BlockHeader   -- ^ The block header.
+                  -> [TxIn]        -- ^ The spent UTxOs.
+                  -> TxIn          -- ^ The output UTxO.
+                  -> TxOut MaryEra -- ^ The transaction output.
+                  -> IO ()         -- ^ Action to process a transaction's output.
 
 
+-- | Watch transactions on the blockchain. Note that transaction output is reported *before* spent UTxOs.
 watchTransactions :: MonadIO m
-                  => FilePath
-                  -> ConsensusModeParams CardanoMode
-                  -> NetworkId
-                  -> Maybe Reverter
-                  -> IdleNotifier
-                  -> BlockHandler
-                  -> TxInHandler
-                  -> TxOutHandler
-                  -> MantisM m ()
+                  => FilePath                        -- ^ Path to the node's socket.
+                  -> ConsensusModeParams CardanoMode -- ^ The consensus mode.
+                  -> NetworkId                       -- ^ The network.
+                  -> Maybe Reverter                  -- ^ Handle rollbacks.
+                  -> IdleNotifier                    -- ^ Handle idleness.
+                  -> BlockHandler                    -- ^ Handle blocks.
+                  -> TxInHandler                     -- ^ Handle spent UTxOs.
+                  -> TxOutHandler                    -- ^ Handle transaction output.
+                  -> MantisM m ()                    -- ^ Action to watch transactions.
 watchTransactions socketPath mode network revertPoint notifyIdle blockHandler inHandler outHandler =
   walkBlocks socketPath mode network notifyIdle revertPoint
     $ processTransactions blockHandler inHandler outHandler
 
 
-processTransactions :: BlockHandler
-                    -> TxInHandler
-                    -> TxOutHandler
-                    -> BlockInMode CardanoMode
-                    -> ChainTip
-                    -> IO ()
+-- | Process transactions.
+processTransactions :: BlockHandler            -- ^ Handle blocks.
+                    -> TxInHandler             -- ^ Handle spent UTxOs.
+                    -> TxOutHandler            -- ^ Handle transaction output.
+                    -> BlockInMode CardanoMode -- ^ The block.
+                    -> ChainTip                -- ^ The chain tip.
+                    -> IO ()                   -- ^ Action to process transactions.
 processTransactions blockHandler inHandler outHandler (BlockInMode (Block header txs) MaryEraInCardanoMode) tip =
   do
     blockHandler header tip

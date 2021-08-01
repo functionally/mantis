@@ -1,8 +1,24 @@
+-----------------------------------------------------------------------------
+--
+-- Module      :  $Headers
+-- Copyright   :  (c) 2021 Brian W Bush
+-- License     :  MIT
+--
+-- Maintainer  :  Brian W Bush <code@functionally.io>
+-- Stability   :  Experimental
+-- Portability :  Portable
+--
+-- | Asset utilities.
+--
+-----------------------------------------------------------------------------
+
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications  #-}
 
 
 module Mantis.Asset (
+-- * Assets
   assetFingerprint
 , assetFingerprintString
 , assetFingerprintBytes
@@ -21,12 +37,14 @@ import qualified Data.ByteString.Char8  as BS     (ByteString, pack)
 import qualified Data.ByteString.Base16 as Base16 (decode)
 
 
+-- | The human-readable prefix for an asset.
 assetPrefix :: HumanReadablePart
 Right assetPrefix = humanReadablePartFromText "asset"
 
 
-assetFingerprintBytes :: BS.ByteString
-                      -> BS.ByteString
+-- | Compute an asset fingerprint.
+assetFingerprintBytes :: BS.ByteString -- ^ The bytes of the policy ID.
+                      -> BS.ByteString -- ^ The bytes of the asset name.
                       -> Text
 assetFingerprintBytes policyId assetName =
   encodeLenient assetPrefix
@@ -36,10 +54,11 @@ assetFingerprintBytes policyId assetName =
     $ policyId <> assetName
 
 
+-- | Compute an asset fingerprint.
 assetFingerprintString :: Monad m
-                       => String
-                       -> String
-                       -> MantisM m Text
+                       => String         -- ^ The policy ID string.
+                       -> String         -- ^ The asset name string.
+                       -> MantisM m Text -- ^ Action for computing the fingerprint.
 assetFingerprintString policyId assetName =
   let
     assetName' = BS.pack assetName
@@ -50,9 +69,10 @@ assetFingerprintString policyId assetName =
      $ BS.pack policyId
 
 
+-- | Compute an asset fingerprint.
 assetFingerprint :: Monad m
-                 => AssetId
-                 -> MantisM m Text
+                 => AssetId        -- ^ The asset ID.
+                 -> MantisM m Text -- ^ Action for computing the fingerprint.
 assetFingerprint (AssetId (PolicyId scriptHash) (AssetName assetName)) =
   return
     $ assetFingerprintBytes
