@@ -31,13 +31,13 @@ module Mantis.Chain (
 ) where
 
 
-import Cardano.Api (Block(..), BlockHeader(..), BlockInMode(..), CardanoMode, ChainPoint, ChainTip, ConsensusModeParams, EraInMode(MaryEraInCardanoMode), LocalNodeClientProtocols(..), LocalChainSyncClient(..), LocalNodeConnectInfo(..), MaryEra, NetworkId, Script, ScriptHash, ShelleyBasedEra(..), SimpleScriptV2, Tx, TxIn(..), TxIx(..), TxOut(..), TxOutValue(..), connectToLocalNode, getTxBody, getTxId, getTxWitnesses)
+import Cardano.Api (Block(..), BlockHeader(..), BlockInMode(..), CardanoMode, ChainPoint, ChainTip, ConsensusModeParams, EraInMode(MaryEraInCardanoMode), LocalNodeClientProtocols(..), LocalChainSyncClient(..), LocalNodeConnectInfo(..), MaryEra, NetworkId, Script, ScriptHash, ShelleyBasedEra(..), SimpleScriptV2, Tx, TxIn(..), TxIx(..), TxOut(..), TxOutDatumHash(..), TxOutValue(..), connectToLocalNode, getTxBody, getTxId, getTxWitnesses)
 import Cardano.Api.ChainSync.Client (ChainSyncClient(..), ClientStIdle(..), ClientStNext(..))
 import Cardano.Api.Shelley (TxBody(ShelleyTxBody), fromMaryValue, fromShelleyAddr, fromShelleyTxIn)
 import Control.Monad.Extra (whenJust)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Foldable (toList)
-import Mantis.Chain.Internal (interpretAsScript)
+--import Mantis.Chain.Internal (interpretAsScript)
 import Mantis.Transaction (supportedMultiAsset)
 import Mantis.Types (MantisM)
 
@@ -141,6 +141,9 @@ extractScripts socketPath mode network notifyIdle handler =
     $ processScripts handler
 
 
+interpretAsScript = undefined
+
+
 -- | Process scripts.
 processScripts :: ScriptHandler           -- ^ Handle a script.
                -> BlockInMode CardanoMode -- ^ The block.
@@ -216,6 +219,7 @@ processTransactions blockHandler inHandler outHandler (BlockInMode (Block header
                 $ TxOut
                   (fromShelleyAddr address)
                   (TxOutValue supportedMultiAsset (fromMaryValue value))
+                  TxOutDatumHashNone
             |
               (ix, txout) <- zip [0..] $ toList txouts
             , let ShelleySpec.TxOut address value = txout
@@ -229,6 +233,6 @@ processTransactions blockHandler inHandler outHandler (BlockInMode (Block header
       |
         tx <- txs
       , let body = getTxBody tx
-            ShelleyTxBody ShelleyBasedEraMary (LedgerMA.TxBody txins txouts _ _ _ _ _ _ _) _ = body
+            ShelleyTxBody ShelleyBasedEraMary (LedgerMA.TxBody txins txouts _ _ _ _ _ _ _) _ _ _ = body
       ]
 processTransactions _ _ _ _ _ = return ()
