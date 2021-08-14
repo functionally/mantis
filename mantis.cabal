@@ -15,7 +15,7 @@ library
   exposed-modules : Mantis.Asset
 --                  Mantis.Chain
 --                  Mantis.Chain.Internal
---                  Mantis.Query
+                    Mantis.Query
 --                  Mantis.Script
 --                  Mantis.Transaction
                     Mantis.Types
