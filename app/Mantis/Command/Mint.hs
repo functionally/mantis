@@ -8,8 +8,8 @@ module Mantis.Command.Mint (
 ) where
 
 
-import Cardano.Api (ConsensusModeParams(CardanoModeParams), CardanoEra(MaryEra), EpochSlots(..), NetworkId(..), NetworkMagic(..), PolicyId(..), anyAddressInEra, getTxId, makeTransactionBody)
-import Cardano.Api.Shelley (ShelleyWitnessSigningKey(..), TxOut(..), TxOutValue(..), UTxO(..), makeScriptWitness, makeSignedTransaction, makeShelleyKeyWitness)
+import Cardano.Api (ConsensusModeParams(CardanoModeParams), CardanoEra(MaryEra), EpochSlots(..), NetworkId(..), NetworkMagic(..), PolicyId(..), TxOutDatumHash(..), anyAddressInEra, getTxId, makeTransactionBody)
+import Cardano.Api.Shelley (ShelleyWitnessSigningKey(..), TxOut(..), TxOutValue(..), UTxO(..), makeSignedTransaction, makeShelleyKeyWitness)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Extra (whenJust)
 import Data.Aeson (encode)
@@ -125,11 +125,10 @@ main debugMantis configFile mintingFile tokenSlot outputAddress scriptFile metad
     txBody <- includeFee network pparams nIn 1 1 0
       $ makeTransaction 
         (M.keys utxo')
-        [TxOut address'' (TxOutValue supportedMultiAsset value')]
+        [TxOut address'' (TxOutValue supportedMultiAsset value') TxOutDatumHashNone]
         before
         (Just metadata)
-        Nothing
-        (Just minting)
+        (Just (PolicyId scriptHash, script, minting))
     txRaw <- foistMantisEither $ makeTransactionBody txBody
     debugMantis ""
     debugMantis $ "Transaction: " ++ show txRaw
@@ -137,8 +136,7 @@ main debugMantis configFile mintingFile tokenSlot outputAddress scriptFile metad
     let
       witness = makeShelleyKeyWitness txRaw
         $ WitnessPaymentExtendedKey signingKey
-      witness' = makeScriptWitness script
-      txSigned = makeSignedTransaction [witness, witness'] txRaw
+      txSigned = makeSignedTransaction [witness] txRaw
     result <- submitTransaction socketPath protocol network txSigned
     printMantis ""
     case result of
