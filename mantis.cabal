@@ -16,7 +16,7 @@ library
 --                  Mantis.Chain
 --                  Mantis.Chain.Internal
                     Mantis.Query
---                  Mantis.Script
+                    Mantis.Script
 --                  Mantis.Transaction
                     Mantis.Types
                     Mantis.Wallet
@@ -52,7 +52,7 @@ executable mantis
                     Mantis.Command.Fingerprint
 --                  Mantis.Command.Info
 --                  Mantis.Command.Mint
---                  Mantis.Command.Script
+                    Mantis.Command.Script
 --                  Mantis.Command.Transact
                     Mantis.Command.Types
 --                  Mantis.Command.Watch

@@ -18,7 +18,7 @@ import qualified Mantis.Command.Bech32      as Bech32
 import qualified Mantis.Command.Fingerprint as Fingerprint
 --import qualified Mantis.Command.Info        as Info
 --import qualified Mantis.Command.Mint        as Mint
---import qualified Mantis.Command.Script      as Script
+import qualified Mantis.Command.Script      as Script
 --import qualified Mantis.Command.Transact    as Transact
 --import qualified Mantis.Command.Watch       as Watch
 import qualified Options.Applicative        as O
@@ -51,7 +51,7 @@ main version =
                         <> Fingerprint.command
 --                      <> Info.command
 --                        <> Mint.command
---                        <> Script.command
+                        <> Script.command
 --                        <> Transact.command
 --                        <> Watch.command
                       )
@@ -77,7 +77,7 @@ main version =
       $ case mantis of
 --        Transact{..}     -> Transact.main printer configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
 --        Mint{..}         -> Mint.main printer configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
---        Script{..}       -> Script.main printer configFile tokenSlot scriptFile
+          Script{..}       -> Script.main printer configFile tokenSlot scriptFile
           Fingerprint{..}  -> Fingerprint.main printer policyId assetName 
 --        InfoUtxo{..}     -> Info.mainUtxo printer configFile addresses
 --        InfoAddress{..}  -> Info.mainAddress printer addresses
