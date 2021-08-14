@@ -16,7 +16,7 @@ import System.IO (hPutStrLn, stderr)
 import qualified Mantis.Command.Bech32      as Bech32
 --import qualified Mantis.Command.Chain       as Chain
 import qualified Mantis.Command.Fingerprint as Fingerprint
---import qualified Mantis.Command.Info        as Info
+import qualified Mantis.Command.Info        as Info
 --import qualified Mantis.Command.Mint        as Mint
 import qualified Mantis.Command.Script      as Script
 --import qualified Mantis.Command.Transact    as Transact
@@ -47,13 +47,13 @@ main version =
                   <$> verboseOption
                   <*> O.hsubparser (
                            Bech32.command
---                        <> Chain.command
+--                      <> Chain.command
                         <> Fingerprint.command
---                      <> Info.command
---                        <> Mint.command
+                        <> Info.command
+--                      <> Mint.command
                         <> Script.command
---                        <> Transact.command
---                        <> Watch.command
+--                      <> Transact.command
+--                      <> Watch.command
                       )
                 )
           )
@@ -79,10 +79,10 @@ main version =
 --        Mint{..}         -> Mint.main printer configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
           Script{..}       -> Script.main printer configFile tokenSlot scriptFile
           Fingerprint{..}  -> Fingerprint.main printer policyId assetName 
---        InfoUtxo{..}     -> Info.mainUtxo printer configFile addresses
---        InfoAddress{..}  -> Info.mainAddress printer addresses
---        InfoTxBody{..}   -> Info.mainTxBody printer txBodyFiles
---        InfoTx{..}       -> Info.mainTx printer txFiles
+          InfoUtxo{..}     -> Info.mainUtxo printer configFile addresses
+          InfoAddress{..}  -> Info.mainAddress printer addresses
+          InfoTxBody{..}   -> Info.mainTxBody printer txBodyFiles
+          InfoTx{..}       -> Info.mainTx printer txFiles
           Bech32Decode{..} -> Bech32.mainDecode printer bech32
           Bech32Encode{..} -> Bech32.mainEncode printer humanReadablePart dataPart
 --        Chain{..}        -> Chain.main printer' configFile outputDirectory continue

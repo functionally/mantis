@@ -50,7 +50,7 @@ executable mantis
                     Mantis.Command.Bech32
 --                  Mantis.Command.Chain
                     Mantis.Command.Fingerprint
---                  Mantis.Command.Info
+                    Mantis.Command.Info
 --                  Mantis.Command.Mint
                     Mantis.Command.Script
 --                  Mantis.Command.Transact
