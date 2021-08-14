@@ -2,7 +2,7 @@ cabal-version: >= 1.10
 
 name              : mantis
 description       : This tool provides several script-oriented utilities for the Cardano blockchain. In particular, it posts metadata or mints/burns tokens. It can also generate scripts, compute script addresses, compute the fingerprint of a token, and download scripts.
-version           : 0.2.13.2
+version           : 0.3.0.0
 license           : MIT
 license-file      : LICENSE
 author            : Brian W Bush
@@ -13,11 +13,11 @@ extra-source-files: ReadMe.md
 
 library
   exposed-modules : Mantis.Asset
-                    Mantis.Chain
-                    Mantis.Chain.Internal
-                    Mantis.Query
-                    Mantis.Script
-                    Mantis.Transaction
+--                  Mantis.Chain
+--                  Mantis.Chain.Internal
+--                  Mantis.Query
+--                  Mantis.Script
+--                  Mantis.Transaction
                     Mantis.Types
                     Mantis.Wallet
   build-depends   : base >= 4.14 && < 4.15
@@ -48,14 +48,14 @@ executable mantis
   main-is         : Main.hs
   other-modules   : Mantis.Command
                     Mantis.Command.Bech32
-                    Mantis.Command.Chain
+--                  Mantis.Command.Chain
                     Mantis.Command.Fingerprint
-                    Mantis.Command.Info
-                    Mantis.Command.Mint
-                    Mantis.Command.Script
-                    Mantis.Command.Transact
+--                  Mantis.Command.Info
+--                  Mantis.Command.Mint
+--                  Mantis.Command.Script
+--                  Mantis.Command.Transact
                     Mantis.Command.Types
-                    Mantis.Command.Watch
+--                  Mantis.Command.Watch
                     Paths_mantis
   build-depends   : base >= 4.14 && < 4.15
                   , aeson
