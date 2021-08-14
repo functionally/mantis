@@ -20,7 +20,7 @@ import qualified Mantis.Command.Info        as Info
 import qualified Mantis.Command.Mint        as Mint
 import qualified Mantis.Command.Script      as Script
 import qualified Mantis.Command.Transact    as Transact
---import qualified Mantis.Command.Watch       as Watch
+import qualified Mantis.Command.Watch       as Watch
 import qualified Options.Applicative        as O
 
 
@@ -53,7 +53,7 @@ main version =
                         <> Mint.command
                         <> Script.command
                         <> Transact.command
---                      <> Watch.command
+                        <> Watch.command
                       )
                 )
           )
@@ -86,8 +86,8 @@ main version =
           Bech32Decode{..} -> Bech32.mainDecode printer bech32
           Bech32Encode{..} -> Bech32.mainEncode printer humanReadablePart dataPart
 --        Chain{..}        -> Chain.main printer' configFile outputDirectory continue
---        WatchAddress{..} -> Watch.mainAddress printer' configFile addresses continue
---        WatchCoin{..}    -> Watch.mainCoin printer' configFile policyId assetName' continue
+          WatchAddress{..} -> Watch.mainAddress printer' configFile addresses continue
+          WatchCoin{..}    -> Watch.mainCoin printer' configFile policyId assetName' continue
     case result of
       Right () -> return ()
       Left e   -> hPutStrLn stderr e >> exitFailure

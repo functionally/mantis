@@ -141,7 +141,7 @@ extractScripts socketPath mode network notifyIdle handler =
     $ processScripts handler
 
 
-interpretAsScript = undefined
+interpretAsScript = undefined -- FIXME
 
 
 -- | Process scripts.
