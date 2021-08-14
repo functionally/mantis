@@ -235,7 +235,7 @@ makeMinting :: Value                               -- ^ The value to which minti
             -> Integer                             -- ^ The number of tokens to omit.
             -> Hash PaymentKey                     -- ^ Hash of the payment key.
             -> Maybe SlotNo                        -- ^ The last slot number for minting.
-            -> (SimpleScript SimpleScriptV2, Value, Value) -- ^ The minting script, value minted, and total value.
+            -> ((PolicyId, SimpleScript SimpleScriptV2, Value), Value) -- ^ The minting script, value minted, and total value.
 makeMinting value name count verification before =
   let
     (script, scriptHash) = mintingScript verification before
@@ -246,8 +246,7 @@ makeMinting value name count verification before =
       )]
   in
     (
-      script
-    , minting
+      (PolicyId scriptHash, script, minting)
     , value <> minting
     )
 

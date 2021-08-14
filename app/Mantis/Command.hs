@@ -19,7 +19,7 @@ import qualified Mantis.Command.Fingerprint as Fingerprint
 import qualified Mantis.Command.Info        as Info
 --import qualified Mantis.Command.Mint        as Mint
 import qualified Mantis.Command.Script      as Script
---import qualified Mantis.Command.Transact    as Transact
+import qualified Mantis.Command.Transact    as Transact
 --import qualified Mantis.Command.Watch       as Watch
 import qualified Options.Applicative        as O
 
@@ -52,7 +52,7 @@ main version =
                         <> Info.command
 --                      <> Mint.command
                         <> Script.command
---                      <> Transact.command
+                        <> Transact.command
 --                      <> Watch.command
                       )
                 )
@@ -75,7 +75,7 @@ main version =
       printer' = if quiet then const $ return () else hPutStrLn stderr
     result <- runMantisToIO
       $ case mantis of
---        Transact{..}     -> Transact.main printer configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
+          Transact{..}     -> Transact.main printer configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
 --        Mint{..}         -> Mint.main printer configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
           Script{..}       -> Script.main printer configFile tokenSlot scriptFile
           Fingerprint{..}  -> Fingerprint.main printer policyId assetName 

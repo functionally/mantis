@@ -53,7 +53,7 @@ executable mantis
                     Mantis.Command.Info
 --                  Mantis.Command.Mint
                     Mantis.Command.Script
---                  Mantis.Command.Transact
+                    Mantis.Command.Transact
                     Mantis.Command.Types
 --                  Mantis.Command.Watch
                     Paths_mantis

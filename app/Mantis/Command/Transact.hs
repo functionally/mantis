@@ -8,13 +8,13 @@ module Mantis.Command.Transact (
 ) where
 
 
-import Cardano.Api (CardanoEra(MaryEra), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), anyAddressInEra, getTxId, makeTransactionBody)
-import Cardano.Api.Shelley (ShelleyWitnessSigningKey(..), TxOut(..), TxOutValue(..), UTxO(..), makeScriptWitness, makeSignedTransaction, makeShelleyKeyWitness)
+import Cardano.Api (CardanoEra(MaryEra), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), TxOutDatumHash(..), anyAddressInEra, getTxId, makeTransactionBody)
+import Cardano.Api.Shelley (ShelleyWitnessSigningKey(..), TxOut(..), TxOutValue(..), UTxO(..), makeSignedTransaction, makeShelleyKeyWitness)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Extra (whenJust)
 import Data.Aeson (encode)
 import Data.Aeson.Encode.Pretty (encodePretty)
-import Data.Maybe (fromMaybe, maybeToList)
+import Data.Maybe (fromMaybe)
 import Mantis.Command.Types (Configuration(..), Mantis(..))
 import Mantis.Query (adjustSlot, queryProtocol, queryTip, queryUTxO, submitTransaction)
 import Mantis.Transaction (includeFee, makeMinting, makeTransaction, printUTxO, printValue, readMetadata, summarizeValues, supportedMultiAsset)
@@ -106,37 +106,38 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
     debugMantis "Metadata . . . read and parsed."
 
     let
-      (script, minting, value') =
+      (scriptMinting, value') =
         case tokenName of
-          Nothing   -> (Nothing, Nothing, value)
+          Nothing   -> (Nothing, value)
           Just name -> let
-                         (script', minting', value'') = makeMinting
+                         (scriptMinting', value'') = makeMinting
                                                           value
                                                           name
                                                           (fromMaybe 1 tokenCount)
                                                           verificationKeyHash
                                                           before
                        in
-                         (Just script', Just minting', value'')
-    debugMantis ""
-    debugMantis $ "Policy: " ++ show script
-    debugMantis ""
-    debugMantis $ "Minting: " ++ show minting
-
-    liftIO
-      $ whenJust scriptFile
-       (`LBS.writeFile` encodePretty script)
+                         (Just scriptMinting', value'')
+    whenJust scriptMinting
+      $ \(_, script, minting) ->
+        do
+          debugMantis ""
+          debugMantis $ "Policy: " ++ show script
+          debugMantis ""
+          debugMantis $ "Minting: " ++ show minting
+          liftIO
+            $ whenJust scriptFile
+             (`LBS.writeFile` encodePretty script)
 
     let
       Just address'' = anyAddressInEra MaryEra address'
     txBody <- includeFee network pparams nIn 1 1 0
-      $ makeTransaction 
+      $ makeTransaction
         (M.keys utxo')
-        [TxOut address'' (TxOutValue supportedMultiAsset value')]
+        [TxOut address'' (TxOutValue supportedMultiAsset value') TxOutDatumHashNone]
         before
         metadata
-        Nothing
-        minting
+        scriptMinting
     txRaw <- foistMantisEither $ makeTransactionBody txBody
     debugMantis ""
     debugMantis $ "Transaction: " ++ show txRaw
@@ -144,8 +145,7 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
     let
       witness = makeShelleyKeyWitness txRaw
         $ WitnessPaymentExtendedKey signingKey
-      witness' = makeScriptWitness <$> script
-      txSigned = makeSignedTransaction (witness : maybeToList witness') txRaw
+      txSigned = makeSignedTransaction [witness] txRaw
     result <- submitTransaction socketPath protocol network txSigned
     debugMantis ""
     case result of
