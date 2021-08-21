@@ -14,7 +14,7 @@ extra-source-files: ReadMe.md
 library
   exposed-modules : Mantis.Asset
                     Mantis.Chain
---                  Mantis.Chain.Internal
+                    Mantis.Chain.Internal
                     Mantis.Query
                     Mantis.Script
                     Mantis.Transaction
@@ -27,6 +27,7 @@ library
                   , bech32
                   , bytestring
                   , cardano-api
+                  , cardano-ledger-core
                   , cardano-ledger-shelley-ma
                   , containers
                   , cryptonite
@@ -36,6 +37,7 @@ library
                   , mtl
                   , ouroboros-network
                   , shelley-spec-ledger
+                  , strict-containers
                   , text
                   , transformers
                   , transformers-except
@@ -48,14 +50,14 @@ executable mantis
   main-is         : Main.hs
   other-modules   : Mantis.Command
                     Mantis.Command.Bech32
---                  Mantis.Command.Chain
+                    Mantis.Command.Chain
                     Mantis.Command.Fingerprint
                     Mantis.Command.Info
                     Mantis.Command.Mint
                     Mantis.Command.Script
                     Mantis.Command.Transact
                     Mantis.Command.Types
---                  Mantis.Command.Watch
+                    Mantis.Command.Watch
                     Paths_mantis
   build-depends   : base >= 4.14 && < 4.15
                   , aeson

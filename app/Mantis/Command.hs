@@ -14,7 +14,7 @@ import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
 
 import qualified Mantis.Command.Bech32      as Bech32
---import qualified Mantis.Command.Chain       as Chain
+import qualified Mantis.Command.Chain       as Chain
 import qualified Mantis.Command.Fingerprint as Fingerprint
 import qualified Mantis.Command.Info        as Info
 import qualified Mantis.Command.Mint        as Mint
@@ -47,7 +47,7 @@ main version =
                   <$> verboseOption
                   <*> O.hsubparser (
                            Bech32.command
---                      <> Chain.command
+                        <> Chain.command
                         <> Fingerprint.command
                         <> Info.command
                         <> Mint.command
@@ -85,7 +85,7 @@ main version =
           InfoTx{..}       -> Info.mainTx printer txFiles
           Bech32Decode{..} -> Bech32.mainDecode printer bech32
           Bech32Encode{..} -> Bech32.mainEncode printer humanReadablePart dataPart
---        Chain{..}        -> Chain.main printer' configFile outputDirectory continue
+          Chain{..}        -> Chain.main printer' configFile outputDirectory continue
           WatchAddress{..} -> Watch.mainAddress printer' configFile addresses continue
           WatchCoin{..}    -> Watch.mainCoin printer' configFile policyId assetName' continue
     case result of

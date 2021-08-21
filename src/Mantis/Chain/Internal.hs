@@ -26,32 +26,34 @@ import Data.List (isPrefixOf)
 import Data.List.Extra (replace)
 import Data.Word (Word64)
 
-import qualified Data.ByteString.Char8 as BS  (pack)
-import qualified Cardano.Api           as API
+import qualified Data.ByteString.Char8              as BS        (pack)
+import qualified Cardano.Api                        as API
+import qualified Cardano.Ledger.Crypto              as Ledger    (StandardCrypto)
+import qualified Cardano.Ledger.ShelleyMA.Timelocks as ShelleyMA (Timelock)
 
 
 -- | Convert a witness to a script.
-interpretAsScript :: API.Witness era                                       -- ^ The witness.
-                  -> Maybe (API.Script API.SimpleScriptV2, API.ScriptHash) -- ^ The script and its hash, if the witness was a script.
+interpretAsScript :: ShelleyMA.Timelock Ledger.StandardCrypto                    -- ^ The witness.
+                  -> Maybe (API.SimpleScript API.SimpleScriptV2, API.ScriptHash) -- ^ The script and its hash, if the witness was a script.
 interpretAsScript witness = 
   do
     let
       text = show witness -- FIXME: Find a less crude way to deal with the existential type `Witness`.
     guard
-      ("ShelleyScriptWitness ShelleyBasedEraMary (" `isPrefixOf` text)
+      ("TimelockConstr " `isPrefixOf` text)
     toScript
       <$> toSimpleScriptV2 text
 
 
 -- | Convert a simple script to a script and its hash.
 toScript :: API.SimpleScript API.SimpleScriptV2             -- ^ The simple script.
-         -> (API.Script API.SimpleScriptV2, API.ScriptHash) -- ^ The script and its hash.
+         -> (API.SimpleScript API.SimpleScriptV2, API.ScriptHash) -- ^ The script and its hash.
 toScript script = 
   let
     script' = API.SimpleScript API.SimpleScriptV2 script
   in
     (
-      script'
+      script
     , API.hashScript script'
     )
 
@@ -62,8 +64,6 @@ toSimpleScriptV2 :: String                                      -- ^ The string 
 toSimpleScriptV2 =
   rewriteScript
     . read
-    . init
-    . replace "ShelleyScriptWitness ShelleyBasedEraMary (" ""
     . replace "TimelockConstr " ""
     . replace "fromList " ""
 

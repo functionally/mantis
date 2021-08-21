@@ -31,13 +31,13 @@ module Mantis.Chain (
 ) where
 
 
-import Cardano.Api (Block(..), BlockHeader(..), BlockInMode(..), CardanoMode, ChainPoint, ChainTip, ConsensusModeParams, EraInMode(MaryEraInCardanoMode), LocalNodeClientProtocols(..), LocalChainSyncClient(..), LocalNodeConnectInfo(..), MaryEra, NetworkId, Script, ScriptHash, ShelleyBasedEra(..), SimpleScriptV2, Tx, TxIn(..), TxIx(..), TxOut(..), TxOutDatumHash(..), TxOutValue(..), connectToLocalNode, getTxBody, getTxId, getTxWitnesses)
+import Cardano.Api (Block(..), BlockHeader(..), BlockInMode(..), CardanoMode, ChainPoint, ChainTip, ConsensusModeParams, EraInMode(MaryEraInCardanoMode), LocalNodeClientProtocols(..), LocalChainSyncClient(..), LocalNodeConnectInfo(..), MaryEra, NetworkId, ScriptHash, ShelleyBasedEra(..), SimpleScript, SimpleScriptV2, Tx, TxIn(..), TxIx(..), TxOut(..), TxOutDatumHash(..), TxOutValue(..), connectToLocalNode, getTxBody, getTxId)
 import Cardano.Api.ChainSync.Client (ChainSyncClient(..), ClientStIdle(..), ClientStNext(..))
 import Cardano.Api.Shelley (TxBody(ShelleyTxBody), fromMaryValue, fromShelleyAddr, fromShelleyTxIn)
 import Control.Monad.Extra (whenJust)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Foldable (toList)
---import Mantis.Chain.Internal (interpretAsScript)
+import Mantis.Chain.Internal (interpretAsScript)
 import Mantis.Transaction (supportedMultiAsset)
 import Mantis.Types (MantisM)
 
@@ -121,11 +121,11 @@ client notifyIdle revertPoint processBlock =
 
 
 -- | Process a script.
-type ScriptHandler =  BlockHeader           -- ^ The block header.
-                   -> Tx MaryEra            -- ^ The transaction.
-                   -> ScriptHash            -- ^ The script's hash.
-                   -> Script SimpleScriptV2 -- ^ The script.
-                   -> IO ()                 -- ^ Action to process the script.
+type ScriptHandler =  BlockHeader                 -- ^ The block header.
+                   -> Tx MaryEra                  -- ^ The transaction.
+                   -> ScriptHash                  -- ^ The script's hash.
+                   -> SimpleScript SimpleScriptV2 -- ^ The script.
+                   -> IO ()                       -- ^ Action to process the script.
 
 
 -- | Extract scripts from the blockchain.
@@ -141,9 +141,6 @@ extractScripts socketPath mode network notifyIdle handler =
     $ processScripts handler
 
 
-interpretAsScript = undefined -- FIXME
-
-
 -- | Process scripts.
 processScripts :: ScriptHandler           -- ^ Handle a script.
                -> BlockInMode CardanoMode -- ^ The block.
@@ -152,11 +149,14 @@ processScripts :: ScriptHandler           -- ^ Handle a script.
 processScripts handler (BlockInMode (Block header txs) MaryEraInCardanoMode) _tip =
   sequence_
     [
-      whenJust (interpretAsScript witness)
-        $ \(script, hash) -> handler header tx hash script
+      do
+        whenJust (interpretAsScript witness)
+          $ \(script, hash) -> handler header tx hash script
     |
       tx <- txs
-    , witness <- getTxWitnesses tx
+    , let body = getTxBody tx
+          ShelleyTxBody ShelleyBasedEraMary (LedgerMA.TxBody _ _ _ _ _ _ _ _ _) witnesses _ _ = body
+    , witness <- witnesses
     ]
 processScripts _ _ _ = return ()
 
