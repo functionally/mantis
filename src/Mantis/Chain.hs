@@ -155,7 +155,7 @@ processScripts handler (BlockInMode (Block header txs) MaryEraInCardanoMode) _ti
     |
       tx <- txs
     , let body = getTxBody tx
-          ShelleyTxBody ShelleyBasedEraMary (LedgerMA.TxBody _ _ _ _ _ _ _ _ _) witnesses _ _ = body
+          ShelleyTxBody ShelleyBasedEraMary (LedgerMA.TxBody _ _ _ _ _ _ _ _ _) witnesses _ _ _ = body
     , witness <- witnesses
     ]
 processScripts _ _ _ = return ()
@@ -233,6 +233,6 @@ processTransactions blockHandler inHandler outHandler (BlockInMode (Block header
       |
         tx <- txs
       , let body = getTxBody tx
-            ShelleyTxBody ShelleyBasedEraMary (LedgerMA.TxBody txins txouts _ _ _ _ _ _ _) _ _ _ = body
+            ShelleyTxBody ShelleyBasedEraMary (LedgerMA.TxBody txins txouts _ _ _ _ _ _ _) _ _ _ _ = body
       ]
 processTransactions _ _ _ _ _ = return ()

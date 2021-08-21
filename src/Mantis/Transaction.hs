@@ -38,7 +38,7 @@ module Mantis.Transaction (
 ) where
 
 
-import Cardano.Api (AssetId(..), AssetName(..), BuildTx, BuildTxWith(..), CardanoEra(..), MultiAssetSupportedInEra(..), Hash, KeyWitnessInCtx(..), MaryEra, NetworkId, PaymentKey, PolicyId(..), Quantity(..), ScriptLanguageInEra(..), SimpleScript(..), SimpleScriptV2, SimpleScriptVersion(..), ScriptWitness(..), SlotNo(..), TxAuxScripts(..), TxCertificates(..), TxExtraScriptData(..), TxExtraKeyWitnesses(..), TxFee(..), TxFeesExplicitInEra(..), TxInsCollateral(..), TxMetadata, TxMetadataInEra(..), TxMetadataSupportedInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxOutDatumHash(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), ValidityNoUpperBoundSupportedInEra(..), ValidityUpperBoundSupportedInEra(..), Value, Witness(..), estimateTransactionFee, filterValue, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, selectLovelace, serialiseToRawBytesHex, txFeesExplicitInEra, validityNoUpperBoundSupportedInEra, validityUpperBoundSupportedInEra, valueFromList, valueToList)
+import Cardano.Api (AssetId(..), AssetName(..), BuildTx, BuildTxWith(..), CardanoEra(..), MultiAssetSupportedInEra(..), Hash, KeyWitnessInCtx(..), MaryEra, NetworkId, PaymentKey, PolicyId(..), Quantity(..), ScriptLanguageInEra(..), SimpleScript(..), SimpleScriptV2, SimpleScriptVersion(..), ScriptWitness(..), SlotNo(..), TxAuxScripts(..), TxCertificates(..), TxExtraScriptData(..), TxExtraKeyWitnesses(..), TxFee(..), TxFeesExplicitInEra(..), TxInsCollateral(..), TxMetadata, TxMetadataInEra(..), TxMetadataSupportedInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxOutDatumHash(..), TxScriptValidity(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), ValidityNoUpperBoundSupportedInEra(..), ValidityUpperBoundSupportedInEra(..), Value, Witness(..), estimateTransactionFee, filterValue, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, selectLovelace, serialiseToRawBytesHex, txFeesExplicitInEra, validityNoUpperBoundSupportedInEra, validityUpperBoundSupportedInEra, valueFromList, valueToList)
 import Cardano.Api.Shelley (ProtocolParameters, TxBodyContent(..), TxId(..), TxIn(..), TxOut(..), TxOutValue(..), UTxO(..), protocolParamTxFeeFixed, protocolParamTxFeePerByte)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Mantis.Script (mintingScript)
@@ -107,6 +107,7 @@ makeTransaction txIns' txOuts before metadata minting =
                               $ SimpleScriptWitness SimpleScriptV2InMary SimpleScriptV2 script
                           )
                           minting
+    txScriptValidity  = BuildTxWith TxScriptValidityNone 
   in
     TxBodyContent{..}
 
