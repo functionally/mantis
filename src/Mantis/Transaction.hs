@@ -107,7 +107,7 @@ makeTransaction txIns' txOuts before metadata minting =
                               $ SimpleScriptWitness SimpleScriptV2InMary SimpleScriptV2 script
                           )
                           minting
-    txScriptValidity  = BuildTxWith TxScriptValidityNone 
+    txScriptValidity  = TxScriptValidityNone 
   in
     TxBodyContent{..}
 
