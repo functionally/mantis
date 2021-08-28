@@ -8,7 +8,7 @@ module Mantis.Command.Chain (
 ) where
 
 
-import Cardano.Api (BlockHeader(..), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), getTxBody, getTxId, serialiseToRawBytesHex)
+import Cardano.Api (BlockHeader(..), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), serialiseToRawBytesHex)
 import Control.Monad.Extra (whenJust)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson.Encode.Pretty (encodePretty)
@@ -54,13 +54,13 @@ main debugIO configFile output continue =
     liftIO . debugIO $ "Network: " ++ show network
 
     extractScripts socketPath protocol network (return $ not continue)
-      $ \(BlockHeader slotNo _ _) tx hash script ->
+      $ \(BlockHeader slotNo _ _) txId hash script ->
         do
           let
             hash' = BS.unpack $ serialiseToRawBytesHex hash
           debugIO ""
           debugIO $ show slotNo
-          debugIO . show . getTxId $ getTxBody tx
+          debugIO $ show txId
           debugIO $ "Hash " ++ hash'
           debugIO $ show script
           whenJust output

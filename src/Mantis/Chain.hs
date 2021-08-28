@@ -13,7 +13,9 @@
 -----------------------------------------------------------------------------
 
 
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 
 module Mantis.Chain (
@@ -31,18 +33,18 @@ module Mantis.Chain (
 ) where
 
 
-import Cardano.Api (Block(..), BlockHeader(..), BlockInMode(..), CardanoMode, ChainPoint, ChainTip, ConsensusModeParams, EraInMode(MaryEraInCardanoMode), LocalNodeClientProtocols(..), LocalChainSyncClient(..), LocalNodeConnectInfo(..), MaryEra, NetworkId, ScriptHash, ShelleyBasedEra(..), SimpleScript, SimpleScriptV2, Tx, TxIn(..), TxIx(..), TxOut(..), TxOutDatumHash(..), TxOutValue(..), connectToLocalNode, getTxBody, getTxId)
+import Cardano.Api (Block(..), BlockHeader(..), BlockInMode(..), CardanoMode, ChainPoint, ChainTip, ConsensusModeParams, EraInMode(..), IsCardanoEra, LocalNodeClientProtocols(..), LocalChainSyncClient(..), LocalNodeConnectInfo(..), NetworkId, ScriptHash, ShelleyBasedEra(..), SimpleScript, SimpleScriptV2, TxBody(..), TxBodyContent(..), TxId, TxIn(..), TxIx(..), TxOut(..), connectToLocalNode, getTxBody, getTxId)
 import Cardano.Api.ChainSync.Client (ChainSyncClient(..), ClientStIdle(..), ClientStNext(..))
-import Cardano.Api.Shelley (TxBody(ShelleyTxBody), fromMaryValue, fromShelleyAddr, fromShelleyTxIn)
-import Control.Monad.Extra (whenJust)
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Data.Foldable (toList)
-import Mantis.Chain.Internal (interpretAsScript)
-import Mantis.Transaction (supportedMultiAsset)
-import Mantis.Types (MantisM)
+import Cardano.Api.Shelley          (TxBody(ShelleyTxBody))
+import Control.Monad.Extra          (whenJust)
+import Control.Monad.IO.Class       (MonadIO, liftIO)
+import Data.Maybe                   (catMaybes)
+import Mantis.Chain.Internal        (interpretAsScript)
+import Mantis.Types                 (MantisM)
 
-import qualified Cardano.Ledger.ShelleyMA.TxBody as LedgerMA    (TxBody(..))
-import qualified Shelley.Spec.Ledger.TxBody      as ShelleySpec (TxOut(..))
+import qualified Cardano.Ledger.Crypto              as Ledger       (StandardCrypto)
+import qualified Cardano.Ledger.Alonzo.Scripts      as LedgerAlonzo (Script(..))
+import qualified Cardano.Ledger.ShelleyMA.Timelocks as ShelleyMA    (Timelock)
 
 
 -- | Process a block.
@@ -122,7 +124,7 @@ client notifyIdle revertPoint processBlock =
 
 -- | Process a script.
 type ScriptHandler =  BlockHeader                 -- ^ The block header.
-                   -> Tx MaryEra                  -- ^ The transaction.
+                   -> TxId                        -- ^ The transaction identifier.
                    -> ScriptHash                  -- ^ The script's hash.
                    -> SimpleScript SimpleScriptV2 -- ^ The script.
                    -> IO ()                       -- ^ Action to process the script.
@@ -146,19 +148,34 @@ processScripts :: ScriptHandler           -- ^ Handle a script.
                -> BlockInMode CardanoMode -- ^ The block.
                -> ChainTip                -- ^ The chain tip.
                -> IO ()                   -- ^ Action to process script.
-processScripts handler (BlockInMode (Block header txs) MaryEraInCardanoMode) _tip =
+processScripts handler (BlockInMode (Block header txs) _) _ =
   sequence_
     [
-      do
-        whenJust (interpretAsScript witness)
-          $ \(script, hash) -> handler header tx hash script
+      whenJust (interpretAsScript witness)
+        $ \(script, hash) -> handler header txId hash script
     |
       tx <- txs
     , let body = getTxBody tx
-          ShelleyTxBody ShelleyBasedEraMary (LedgerMA.TxBody _ _ _ _ _ _ _ _ _) witnesses _ _ _ = body
-    , witness <- witnesses
+    , let txId = getTxId body
+    , witness <- extractTimelocks body
     ]
-processScripts _ _ _ = return ()
+
+
+-- | Extract the time-lock scripts from a transaction body.
+extractTimelocks :: TxBody era                                 -- ^ The transaction body.
+                 -> [ShelleyMA.Timelock Ledger.StandardCrypto] -- ^ The time-lock scripts.
+extractTimelocks (ShelleyTxBody ShelleyBasedEraAllegra _ witnesses _ _ _) = witnesses
+extractTimelocks (ShelleyTxBody ShelleyBasedEraMary    _ witnesses _ _ _) = witnesses
+extractTimelocks (ShelleyTxBody ShelleyBasedEraAlonzo  _ witnesses _ _ _) =
+  catMaybes
+    [
+     case witness of
+       LedgerAlonzo.TimelockScript witness' -> Just witness'
+       _                                    -> Nothing
+    |
+      witness <- witnesses
+    ]
+extractTimelocks _ = []
 
 
 -- | Process a block.
@@ -174,10 +191,12 @@ type TxInHandler =  BlockHeader -- ^ The block header.
 
 
 -- | Process a transaction's output.
-type TxOutHandler =  BlockHeader   -- ^ The block header.
+type TxOutHandler =  forall era
+                  .  IsCardanoEra era
+                  => BlockHeader   -- ^ The block header.
                   -> [TxIn]        -- ^ The spent UTxOs.
                   -> TxIn          -- ^ The output UTxO.
-                  -> TxOut MaryEra -- ^ The transaction output.
+                  -> TxOut era     -- ^ The transaction output.
                   -> IO ()         -- ^ Action to process a transaction's output.
 
 
@@ -204,7 +223,27 @@ processTransactions :: BlockHandler            -- ^ Handle blocks.
                     -> BlockInMode CardanoMode -- ^ The block.
                     -> ChainTip                -- ^ The chain tip.
                     -> IO ()                   -- ^ Action to process transactions.
-processTransactions blockHandler inHandler outHandler (BlockInMode (Block header txs) MaryEraInCardanoMode) tip =
+processTransactions blockHandler inHandler outHandler (BlockInMode block AlonzoEraInCardanoMode ) =
+  processTransactions' blockHandler inHandler outHandler block
+processTransactions blockHandler inHandler outHandler (BlockInMode block MaryEraInCardanoMode   ) =
+  processTransactions' blockHandler inHandler outHandler block
+processTransactions blockHandler inHandler outHandler (BlockInMode block AllegraEraInCardanoMode) =
+  processTransactions' blockHandler inHandler outHandler block
+processTransactions blockHandler inHandler outHandler (BlockInMode block ShelleyEraInCardanoMode) =
+  processTransactions' blockHandler inHandler outHandler block
+processTransactions blockHandler inHandler outHandler (BlockInMode block ByronEraInCardanoMode  ) =
+  processTransactions' blockHandler inHandler outHandler block
+
+
+-- | Process transactions in a Cardano era.
+processTransactions' :: IsCardanoEra era
+                     => BlockHandler            -- ^ Handle blocks.
+                     -> TxInHandler             -- ^ Handle spent UTxOs.
+                     -> TxOutHandler            -- ^ Handle transaction output.
+                     -> Block era               -- ^ The block.
+                     -> ChainTip                -- ^ The chain tip.
+                     -> IO ()                   -- ^ Action to process transactions.
+processTransactions' blockHandler inHandler outHandler (Block header txs) tip =
   do
     blockHandler header tip
     sequence_
@@ -214,25 +253,22 @@ processTransactions blockHandler inHandler outHandler (BlockInMode (Block header
             [
               outHandler
                 header
-                (fromShelleyTxIn <$> toList txins)
+                txins
                 (TxIn (getTxId body) (TxIx ix))
-                $ TxOut
-                  (fromShelleyAddr address)
-                  (TxOutValue supportedMultiAsset (fromMaryValue value))
-                  TxOutDatumHashNone
+                txout
             |
-              (ix, txout) <- zip [0..] $ toList txouts
-            , let ShelleySpec.TxOut address value = txout
+              (ix, txout) <- zip [0..] txouts
             ]
           sequence_
             [
-              inHandler header $ fromShelleyTxIn txin
+              inHandler header txin
             |
-              txin <- toList txins
+              txin <- txins
             ]
       |
         tx <- txs
       , let body = getTxBody tx
-            ShelleyTxBody ShelleyBasedEraMary (LedgerMA.TxBody txins txouts _ _ _ _ _ _ _) _ _ _ _ = body
+            TxBody content = body
+            txins  = fst <$> txIns content
+            txouts = txOuts content
       ]
-processTransactions _ _ _ _ _ = return ()

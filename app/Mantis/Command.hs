@@ -7,6 +7,7 @@ module Mantis.Command (
 ) where
 
 
+import Cardano.Api (AsType(AsAlonzoEra), ShelleyBasedEra(ShelleyBasedEraAlonzo))
 import Data.Version (Version, showVersion)
 import Mantis.Command.Types (Mantis(..))
 import Mantis.Types (debugMantis, runMantisToIO)
@@ -73,16 +74,18 @@ main version =
     let
       printer  = if quiet then const $ return () else debugMantis
       printer' = if quiet then const $ return () else hPutStrLn stderr
+      sbe = ShelleyBasedEraAlonzo
+      asEra = AsAlonzoEra
     result <- runMantisToIO
       $ case mantis of
-          Transact{..}     -> Transact.main printer configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
-          Mint{..}         -> Mint.main printer configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
+          Transact{..}     -> Transact.main sbe printer configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
+          Mint{..}         -> Mint.main sbe printer configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
           Script{..}       -> Script.main printer configFile tokenSlot scriptFile
           Fingerprint{..}  -> Fingerprint.main printer policyId assetName
-          InfoUtxo{..}     -> Info.mainUtxo printer configFile addresses
+          InfoUtxo{..}     -> Info.mainUtxo sbe printer configFile addresses
           InfoAddress{..}  -> Info.mainAddress printer addresses
-          InfoTxBody{..}   -> Info.mainTxBody printer txBodyFiles
-          InfoTx{..}       -> Info.mainTx printer txFiles
+          InfoTxBody{..}   -> Info.mainTxBody asEra printer txBodyFiles
+          InfoTx{..}       -> Info.mainTx asEra printer txFiles
           Bech32Decode{..} -> Bech32.mainDecode printer bech32
           Bech32Encode{..} -> Bech32.mainEncode printer humanReadablePart dataPart
           Chain{..}        -> Chain.main printer' configFile outputDirectory continue

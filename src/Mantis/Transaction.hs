@@ -34,11 +34,10 @@ module Mantis.Transaction (
 -- * Minting
 , makeMinting
 , readMinting
-, supportedMultiAsset
 ) where
 
 
-import Cardano.Api (AssetId(..), AssetName(..), BuildTx, BuildTxWith(..), CardanoEra(..), MultiAssetSupportedInEra(..), Hash, KeyWitnessInCtx(..), MaryEra, NetworkId, PaymentKey, PolicyId(..), Quantity(..), ScriptLanguageInEra(..), SimpleScript(..), SimpleScriptV2, SimpleScriptVersion(..), ScriptWitness(..), SlotNo(..), TxAuxScripts(..), TxCertificates(..), TxExtraScriptData(..), TxExtraKeyWitnesses(..), TxFee(..), TxFeesExplicitInEra(..), TxInsCollateral(..), TxMetadata, TxMetadataInEra(..), TxMetadataSupportedInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxOutDatumHash(..), TxScriptValidity(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), ValidityNoUpperBoundSupportedInEra(..), ValidityUpperBoundSupportedInEra(..), Value, Witness(..), estimateTransactionFee, filterValue, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, selectLovelace, serialiseToRawBytesHex, txFeesExplicitInEra, validityNoUpperBoundSupportedInEra, validityUpperBoundSupportedInEra, valueFromList, valueToList)
+import Cardano.Api (AssetId(..), AssetName(..), BuildTx, BuildTxWith(..), Hash, IsCardanoEra(..), IsShelleyBasedEra, KeyWitnessInCtx(..), Lovelace, NetworkId, PaymentKey, PolicyId(..), Quantity(..), ScriptLanguage(..), SimpleScript(..), SimpleScriptV2, SimpleScriptVersion(..), ScriptWitness(..), SlotNo(..), TxAuxScripts(..), TxCertificates(..), TxExtraScriptData(..), TxExtraKeyWitnesses(..), TxFee(..), TxInsCollateral(..), TxMetadata, TxMetadataInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxOutDatumHash(..), TxScriptValidity(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), Value, Witness(..), estimateTransactionFee, filterValue, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, scriptLanguageSupportedInEra, selectLovelace, serialiseToRawBytesHex, txFeesExplicitInEra, txMetadataSupportedInEra, validityNoUpperBoundSupportedInEra, validityUpperBoundSupportedInEra, valueFromList, valueToList)
 import Cardano.Api.Shelley (ProtocolParameters, TxBodyContent(..), TxId(..), TxIn(..), TxOut(..), TxOutValue(..), UTxO(..), protocolParamTxFeeFixed, protocolParamTxFeePerByte)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Mantis.Script (mintingScript)
@@ -51,46 +50,83 @@ import qualified Data.Map.Strict       as M  (assocs, singleton)
 import qualified Data.Text             as T  (pack, unpack)
 
 
--- | The Mary era supports having no upper bound.
-supportedNoUpperBound :: ValidityNoUpperBoundSupportedInEra MaryEra
-Just supportedNoUpperBound = validityNoUpperBoundSupportedInEra MaryEra
+-- | Make a valid fee.
+validFee :: IsCardanoEra era
+         => Lovelace  -- ^ The amount of lovelace.
+         -> TxFee era -- ^ The fee for the era.
+validFee fee =
+  either
+    TxFeeImplicit
+    (`TxFeeExplicit` fee)
+    $ txFeesExplicitInEra cardanoEra
 
 
--- | The Mary era support upper bounds.
-supportedUpperBound :: ValidityUpperBoundSupportedInEra MaryEra
-Just supportedUpperBound = validityUpperBoundSupportedInEra MaryEra
+-- | Make a valid range of slots.
+validRange :: IsCardanoEra era
+           => Maybe SlotNo                                         -- ^ The upper bound, if any.
+           -> (TxValidityLowerBound era, TxValidityUpperBound era) -- ^ The range for the era.
+validRange Nothing =
+  let
+    Just supported = validityNoUpperBoundSupportedInEra cardanoEra
+  in
+    (
+      TxValidityNoLowerBound
+    , TxValidityNoUpperBound supported
+    )
+validRange (Just before) =
+  let
+    Just notSupported = validityNoUpperBoundSupportedInEra cardanoEra
+    supported = validityUpperBoundSupportedInEra cardanoEra
+  in
+    (
+      TxValidityNoLowerBound
+    , maybe
+        (TxValidityNoUpperBound notSupported)
+        (`TxValidityUpperBound` before)
+        supported
+    )
 
 
--- | The Mary era supports multi-assets.
-supportedMultiAsset :: MultiAssetSupportedInEra MaryEra
-Right supportedMultiAsset = multiAssetSupportedInEra MaryEra
+-- | Make valid metadata.
+validMetadata :: IsCardanoEra era
+              => Maybe TxMetadata    -- ^ The metadata, if any.
+              -> TxMetadataInEra era -- ^ The metadata for the era.
+validMetadata Nothing = TxMetadataNone
+validMetadata (Just metadata) =
+  maybe
+    TxMetadataNone
+    (`TxMetadataInEra` metadata)
+    $ txMetadataSupportedInEra cardanoEra
 
 
--- | The Mary era has explicit fees.
-explicitFees :: TxFeesExplicitInEra MaryEra
-Right explicitFees = txFeesExplicitInEra MaryEra
+validMint :: IsCardanoEra era
+          => Maybe (PolicyId, SimpleScript SimpleScriptV2, Value) -- ^ The policy, script, and value, if any.
+          -> TxMintValue BuildTx era                              -- ^ The minting for the era.
+validMint Nothing = TxMintNone
+validMint (Just (policy, script, value)) =
+  case (multiAssetSupportedInEra cardanoEra, scriptLanguageSupportedInEra cardanoEra (SimpleScriptLanguage SimpleScriptV2)) of
+    (Right supportedMultiAsset, Just supportedScript) -> TxMintValue supportedMultiAsset value
+                                                           . BuildTxWith
+                                                           . M.singleton policy
+                                                           $ SimpleScriptWitness supportedScript SimpleScriptV2 script
+    _                                                 -> TxMintNone
 
 
 -- | Build a transaction.
-makeTransaction :: [TxIn]                                               -- ^ The UTxOs to be spent.
-                -> [TxOut MaryEra]                                      -- ^ The output UTxOs.
+makeTransaction :: IsCardanoEra era
+                => [TxIn]                                               -- ^ The UTxOs to be spent.
+                -> [TxOut era]                                          -- ^ The output UTxOs.
                 -> Maybe SlotNo                                         -- ^ The latest slot for the transaction.
                 -> Maybe TxMetadata                                     -- ^ The metadata.
                 -> Maybe (PolicyId, SimpleScript SimpleScriptV2, Value) -- ^ The value to be minted.
-                -> TxBodyContent BuildTx MaryEra                        -- ^ Action for building the transaction.
+                -> TxBodyContent BuildTx era                            -- ^ Action for building the transaction.
 makeTransaction txIns' txOuts before metadata minting =
   let
     txIns             = (, BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> txIns'
     txInsCollateral   = TxInsCollateralNone
-    txFee             = TxFeeExplicit explicitFees 0
-    txValidityRange   = (
-                          TxValidityNoLowerBound
-                        , maybe
-                            (TxValidityNoUpperBound supportedNoUpperBound)
-                            (TxValidityUpperBound supportedUpperBound)
-                            before
-                        )
-    txMetadata        = maybe TxMetadataNone (TxMetadataInEra TxMetadataInMaryEra) metadata
+    txFee             = validFee 0
+    txValidityRange   = validRange before
+    txMetadata        = validMetadata metadata
     txAuxScripts      = TxAuxScriptsNone
     txExtraScriptData = BuildTxWith TxExtraScriptDataNone
     txExtraKeyWits    = TxExtraKeyWitnessesNone
@@ -98,31 +134,24 @@ makeTransaction txIns' txOuts before metadata minting =
     txWithdrawals     = TxWithdrawalsNone
     txCertificates    = TxCertificatesNone
     txUpdateProposal  = TxUpdateProposalNone
-    txMintValue       = maybe
-                          TxMintNone
-                          ( \(policy, script, value) ->
-                            TxMintValue supportedMultiAsset value
-                              . BuildTxWith
-                              . M.singleton policy
-                              $ SimpleScriptWitness SimpleScriptV2InMary SimpleScriptV2 script
-                          )
-                          minting
+    txMintValue       = validMint minting
     txScriptValidity  = TxScriptValidityNone
   in
     TxBodyContent{..}
 
 
 -- | Include the fee in a transaction.
-includeFee :: MonadFail m
+includeFee :: IsShelleyBasedEra era
+           => MonadFail m
            => MonadIO m
-           => NetworkId                                 -- ^ The network.
-           -> ProtocolParameters                        -- ^ The protocol parameters.
-           -> Int                                       -- ^ The number of inputs.
-           -> Int                                       -- ^ The number of outputs.
-           -> Int                                       -- ^ The number of Shelley witnesses.
-           -> Int                                       -- ^ The number of Byron witnesses.
-           -> TxBodyContent BuildTx MaryEra             -- ^ The transaction body.
-           -> MantisM m (TxBodyContent BuildTx MaryEra) -- ^ Action for the transaction body with fee included.
+           => NetworkId                             -- ^ The network.
+           -> ProtocolParameters                    -- ^ The protocol parameters.
+           -> Int                                   -- ^ The number of inputs.
+           -> Int                                   -- ^ The number of outputs.
+           -> Int                                   -- ^ The number of Shelley witnesses.
+           -> Int                                   -- ^ The number of Byron witnesses.
+           -> TxBodyContent BuildTx era             -- ^ The transaction body.
+           -> MantisM m (TxBodyContent BuildTx era) -- ^ Action for the transaction body with fee included.
 includeFee network pparams nIn nOut nShelley nByron content =
   do
     body <- foistMantisEither $ makeTransactionBody content
@@ -140,7 +169,7 @@ includeFee network pparams nIn nOut nShelley nByron content =
     return
       $ content
         {
-          txFee  = TxFeeExplicit explicitFees lovelace
+          txFee  = validFee lovelace
         , txOuts = [TxOut addr (TxOutValue s $ value <> fee) TxOutDatumHashNone]
         }
 
@@ -170,7 +199,7 @@ readMetadata = fmap snd . readMetadata'
 -- | Print information about a UTxO.
 printUTxO :: MonadIO m
           => String       -- ^ How much to indent the output.
-          -> UTxO MaryEra -- ^ The UTxO.
+          -> UTxO era     -- ^ The UTxO.
           -> MantisM m () -- ^ Action to print the information.
 printUTxO indent (UTxO utxoMap) =
   sequence_
@@ -216,7 +245,7 @@ show' = init . tail . show
 
 
 -- | Summarize the values in a UTxO.
-summarizeValues :: UTxO MaryEra -- ^ The UTxO.
+summarizeValues :: UTxO era     -- ^ The UTxO.
                 -> (Int, Value) -- ^ The number of values and their total.
 summarizeValues (UTxO utxoMap) =
   let

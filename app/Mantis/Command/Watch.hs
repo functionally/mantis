@@ -10,14 +10,14 @@ module Mantis.Command.Watch (
 ) where
 
 
-import Cardano.Api (AssetId(..), AsType(AsAssetName, AsPolicyId), BlockHeader(..), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), TxOut(..), TxOutValue(..), anyAddressInShelleyBasedEra, deserialiseFromRawBytes, deserialiseFromRawBytesHex, selectAsset, valueToList)
+import Cardano.Api (AssetId(..), AsType(AsAssetName, AsPolicyId), BlockHeader(..), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), TxOut(..), TxOutValue(..), deserialiseFromRawBytes, deserialiseFromRawBytesHex, selectAsset, valueToList)
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Mantis.Chain (Reverter, watchTransactions)
 import Mantis.Command.Types (Configuration(..), Mantis(..))
 import Mantis.Types (MantisM, foistMantisMaybe)
 import Mantis.Transaction (printValueIO)
-import Mantis.Wallet (readAddress, showAddressMary)
+import Mantis.Wallet (readAddress, showAddressInEra)
 
 import qualified Data.ByteString.Char8 as BS (pack)
 import qualified Options.Applicative   as O
@@ -55,7 +55,7 @@ mainAddress :: MonadFail m
 mainAddress debugIO configFile addresses continue =
   do
     Configuration{..} <- liftIO $ read <$> readFile configFile
-    addresses' <- mapM (fmap anyAddressInShelleyBasedEra . readAddress) addresses
+    mapM_ readAddress addresses
 
     let
       protocol = CardanoModeParams $ EpochSlots epochSlots
@@ -69,11 +69,11 @@ mainAddress debugIO configFile addresses continue =
       $ \(BlockHeader slotNo _ _) _ txIn (TxOut address txOutValue _) ->
         case txOutValue of
           TxOutValue _ value ->
-            when (address `elem` addresses')
+            when (showAddressInEra address `elem` addresses)
               $ do
                 print txIn
                 putStrLn $ "  " ++ show slotNo
-                putStrLn $ "  " ++ showAddressMary address
+                putStrLn $ "  " ++ showAddressInEra address
                 printValueIO "  " value
           _ -> return ()
 
@@ -129,7 +129,7 @@ mainCoin debugIO configFile policyId assetName continue =
               $ do
                 print txIn
                 putStrLn $ "  " ++ show slotNo
-                putStrLn $ "  " ++ showAddressMary address
+                putStrLn $ "  " ++ showAddressInEra address
                 printValueIO "  " value
           _ -> return ()
 

@@ -26,14 +26,14 @@ module Mantis.Wallet (
 -- * Addresses
 , readAddress
 , showAddress
-, showAddressMary
+, showAddressInEra
 -- * Stake addresses
 , stakeReference
-, stakeReferenceMary
+, stakeReferenceInEra
 ) where
 
 
-import Cardano.Api (AddressAny(..), AddressInEra(..), AddressTypeInEra(ShelleyAddressInEra), AsType(..), Hash, MaryEra, PaymentExtendedKey, PaymentExtendedKey, PaymentKey, ShelleyBasedEra(ShelleyBasedEraMary), SigningKey, StakeAddressReference(NoStakeAddress), VerificationKey, castVerificationKey, deserialiseAddress, readFileTextEnvelope, serialiseAddress, verificationKeyHash)
+import Cardano.Api (AddressAny(..), AddressInEra(..), AddressTypeInEra(ShelleyAddressInEra), AsType(..), Hash, IsCardanoEra, IsShelleyBasedEra(..), PaymentExtendedKey, PaymentExtendedKey, PaymentKey, SigningKey, StakeAddressReference(NoStakeAddress), VerificationKey, castVerificationKey, deserialiseAddress, readFileTextEnvelope, serialiseAddress, verificationKeyHash)
 import Control.Monad.IO.Class (MonadIO)
 import Mantis.Types (MantisM, foistMantisEitherIO, foistMantisMaybe)
 
@@ -57,10 +57,11 @@ showAddress :: AddressAny -- ^ The address.
 showAddress = T.unpack . serialiseAddress
 
 
--- | Show a Mary address.
-showAddressMary :: AddressInEra MaryEra -- ^ The address.
-                -> String               -- ^ The string representation.
-showAddressMary = T.unpack . serialiseAddress
+-- | Show a era-based address.
+showAddressInEra :: IsCardanoEra era
+                 => AddressInEra era -- ^ The address.
+                 -> String           -- ^ The string representation.
+showAddressInEra = T.unpack . serialiseAddress
 
 
 -- | A payment verification key.
@@ -104,7 +105,8 @@ stakeReference _                                               = NoStakeAddress
 
 
 -- | Extract a stake address from a payment address.
-stakeReferenceMary :: AddressInEra MaryEra  -- ^ The payment address.
+stakeReferenceInEra :: IsShelleyBasedEra era
+                    => AddressInEra era     -- ^ The payment address.
                    -> StakeAddressReference -- ^ The stake address.
-stakeReferenceMary (AddressInEra (ShelleyAddressInEra ShelleyBasedEraMary) (Shelley.ShelleyAddress _ _  s)) = Shelley.fromShelleyStakeReference s
-stakeReferenceMary _                                                                                        = NoStakeAddress
+stakeReferenceInEra (AddressInEra (ShelleyAddressInEra _) (Shelley.ShelleyAddress _ _  s)) = Shelley.fromShelleyStakeReference s
+stakeReferenceInEra _                                                                      = NoStakeAddress

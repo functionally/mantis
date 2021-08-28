@@ -11,7 +11,7 @@ module Mantis.Command.Info (
 ) where
 
 
-import Cardano.Api (AsType(AsTx, AsTxBody, AsMaryEra), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), getTxBody, getTxId, readFileTextEnvelope)
+import Cardano.Api (AsType(AsTx, AsTxBody), ConsensusModeParams(CardanoModeParams), EpochSlots(..), IsCardanoEra, NetworkId(..), NetworkMagic(..), ShelleyBasedEra, getTxBody, getTxId, readFileTextEnvelope)
 import Control.Monad (forM_)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Mantis.Command.Types (Configuration(..), Mantis(InfoAddress, InfoTx, InfoTxBody, InfoUtxo))
@@ -55,13 +55,15 @@ command =
     ]
 
 
-mainUtxo :: MonadFail m
+mainUtxo :: IsCardanoEra era
+         => MonadFail m
          => MonadIO m
-         => (String -> MantisM m ())
+         => ShelleyBasedEra era
+         -> (String -> MantisM m ())
          -> FilePath
          -> [String]
          -> MantisM m ()
-mainUtxo debugMantis configFile addresses =
+mainUtxo sbe debugMantis configFile addresses =
   do
     Configuration{..} <- liftIO $ read <$> readFile configFile
 
@@ -80,7 +82,7 @@ mainUtxo debugMantis configFile addresses =
           debugMantis $ "  " ++ show address
           debugMantis $ "  " ++ show address'
           printMantis "Unspent UTxO:"
-          utxo <- queryUTxO socketPath protocol address' network
+          utxo <- queryUTxO sbe socketPath protocol address' network
           printUTxO "  " utxo
 
 
@@ -99,11 +101,13 @@ mainAddress _ addresses =
         printMantis $ "  " ++ show address'
 
 
-mainTxBody :: MonadIO m
-           => (String -> MantisM m ())
+mainTxBody :: IsCardanoEra era
+           => MonadIO m
+           => AsType era
+           -> (String -> MantisM m ())
            -> [FilePath]
            -> MantisM m ()
-mainTxBody _ txBodyFiles =
+mainTxBody asEra _ txBodyFiles =
   forM_ txBodyFiles
       $ \file ->
         do
@@ -111,16 +115,18 @@ mainTxBody _ txBodyFiles =
           printMantis $ "Transaction body file: " ++ file
           txBody <-
             foistMantisEitherIO
-              $ readFileTextEnvelope (AsTxBody AsMaryEra) file
+              $ readFileTextEnvelope (AsTxBody asEra) file
           printMantis . show $ getTxId txBody
           printMantis $ show txBody
 
 
-mainTx :: MonadIO m
-       => (String -> MantisM m ())
+mainTx :: IsCardanoEra era
+       => MonadIO m
+       => AsType era
+       -> (String -> MantisM m ())
        -> [FilePath]
        -> MantisM m ()
-mainTx _ txFiles =
+mainTx asEra _ txFiles =
   forM_ txFiles
       $ \file ->
         do
@@ -128,6 +134,6 @@ mainTx _ txFiles =
           printMantis $ "Transaction file: " ++ file
           tx <-
             foistMantisEitherIO
-              $ readFileTextEnvelope (AsTx AsMaryEra) file
+              $ readFileTextEnvelope (AsTx asEra) file
           printMantis . show . getTxId $ getTxBody tx
           printMantis $ show tx
