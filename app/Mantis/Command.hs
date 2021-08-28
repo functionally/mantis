@@ -78,7 +78,7 @@ main version =
           Transact{..}     -> Transact.main printer configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile
           Mint{..}         -> Mint.main printer configFile mintingFile tokenSlot outputAddress scriptFile metadataFile
           Script{..}       -> Script.main printer configFile tokenSlot scriptFile
-          Fingerprint{..}  -> Fingerprint.main printer policyId assetName 
+          Fingerprint{..}  -> Fingerprint.main printer policyId assetName
           InfoUtxo{..}     -> Info.mainUtxo printer configFile addresses
           InfoAddress{..}  -> Info.mainAddress printer addresses
           InfoTxBody{..}   -> Info.mainTxBody printer txBodyFiles

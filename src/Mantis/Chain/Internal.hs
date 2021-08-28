@@ -35,7 +35,7 @@ import qualified Cardano.Ledger.ShelleyMA.Timelocks as ShelleyMA (Timelock)
 -- | Convert a witness to a script.
 interpretAsScript :: ShelleyMA.Timelock Ledger.StandardCrypto                    -- ^ The witness.
                   -> Maybe (API.SimpleScript API.SimpleScriptV2, API.ScriptHash) -- ^ The script and its hash, if the witness was a script.
-interpretAsScript witness = 
+interpretAsScript witness =
   do
     let
       text = show witness -- FIXME: Find a less crude way to deal with the existential type `Witness`.
@@ -48,7 +48,7 @@ interpretAsScript witness =
 -- | Convert a simple script to a script and its hash.
 toScript :: API.SimpleScript API.SimpleScriptV2             -- ^ The simple script.
          -> (API.SimpleScript API.SimpleScriptV2, API.ScriptHash) -- ^ The script and its hash.
-toScript script = 
+toScript script =
   let
     script' = API.SimpleScript API.SimpleScriptV2 script
   in

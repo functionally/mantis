@@ -123,7 +123,7 @@ main debugMantis configFile mintingFile tokenSlot outputAddress scriptFile metad
     let
       Just address'' = anyAddressInEra MaryEra address'
     txBody <- includeFee network pparams nIn 1 1 0
-      $ makeTransaction 
+      $ makeTransaction
         (M.keys utxo')
         [TxOut address'' (TxOutValue supportedMultiAsset value') TxOutDatumHashNone]
         before

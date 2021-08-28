@@ -68,7 +68,7 @@ mainAddress debugIO configFile addresses continue =
     watchTransactions socketPath protocol network (Just reportReversion) (return $ not continue) ignoreBlocks ignoreTxIns
       $ \(BlockHeader slotNo _ _) _ txIn (TxOut address txOutValue _) ->
         case txOutValue of
-          TxOutValue _ value -> 
+          TxOutValue _ value ->
             when (address `elem` addresses')
               $ do
                 print txIn
@@ -124,7 +124,7 @@ mainCoin debugIO configFile policyId assetName continue =
     watchTransactions socketPath protocol network (Just reportReversion) (return $ not continue) ignoreBlocks ignoreTxIns
       $ \(BlockHeader slotNo _ _) _ txIn (TxOut address txOutValue _) ->
         case txOutValue of
-          TxOutValue _ value -> 
+          TxOutValue _ value ->
             when (assetFilter value)
               $ do
                 print txIn

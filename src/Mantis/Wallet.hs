@@ -55,13 +55,13 @@ readAddress =
 showAddress :: AddressAny -- ^ The address.
             -> String     -- ^ The string representation.
 showAddress = T.unpack . serialiseAddress
-  
+
 
 -- | Show a Mary address.
 showAddressMary :: AddressInEra MaryEra -- ^ The address.
                 -> String               -- ^ The string representation.
 showAddressMary = T.unpack . serialiseAddress
-  
+
 
 -- | A payment verification key.
 type SomePaymentVerificationKey = Either (VerificationKey PaymentKey) (VerificationKey PaymentExtendedKey)
