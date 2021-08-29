@@ -139,7 +139,7 @@ main sbe debugMantis configFile mintingFile tokenSlot outputAddress scriptFile m
 
     let
       witness = makeShelleyKeyWitness txRaw
-        $ WitnessPaymentExtendedKey signingKey
+        $ either WitnessPaymentKey WitnessPaymentExtendedKey signingKey
       txSigned = makeSignedTransaction [witness] txRaw
     result <- submitTransaction sbe socketPath protocol network txSigned
     printMantis ""

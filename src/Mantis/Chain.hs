@@ -237,12 +237,12 @@ processTransactions blockHandler inHandler outHandler (BlockInMode block ByronEr
 
 -- | Process transactions in a Cardano era.
 processTransactions' :: IsCardanoEra era
-                     => BlockHandler            -- ^ Handle blocks.
-                     -> TxInHandler             -- ^ Handle spent UTxOs.
-                     -> TxOutHandler            -- ^ Handle transaction output.
-                     -> Block era               -- ^ The block.
-                     -> ChainTip                -- ^ The chain tip.
-                     -> IO ()                   -- ^ Action to process transactions.
+                     => BlockHandler -- ^ Handle blocks.
+                     -> TxInHandler  -- ^ Handle spent UTxOs.
+                     -> TxOutHandler -- ^ Handle transaction output.
+                     -> Block era    -- ^ The block.
+                     -> ChainTip     -- ^ The chain tip.
+                     -> IO ()        -- ^ Action to process transactions.
 processTransactions' blockHandler inHandler outHandler (Block header txs) tip =
   do
     blockHandler header tip

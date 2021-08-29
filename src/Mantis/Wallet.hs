@@ -21,6 +21,7 @@ module Mantis.Wallet (
 -- * Keys
   SomePaymentVerificationKey
 , readVerificationKey
+, SomePaymentSigningKey
 , readSigningKey
 , makeVerificationKeyHash
 -- * Addresses
@@ -88,13 +89,20 @@ makeVerificationKeyHash =
     . either id castVerificationKey
 
 
+-- | A payment signing key.
+type SomePaymentSigningKey = Either (SigningKey PaymentKey) (SigningKey PaymentExtendedKey)
+
+
 -- | Read a signing key.
 readSigningKey :: MonadIO m
-               => FilePath                                  -- ^ Path to the key.
-               -> MantisM m (SigningKey PaymentExtendedKey) -- ^ Action to read the key.
-readSigningKey =
+               => FilePath                        -- ^ Path to the key.
+               -> MantisM m SomePaymentSigningKey -- ^ Action to read the key.
+readSigningKey file =
   foistMantisEitherIO
-    . readFileTextEnvelope (AsSigningKey AsPaymentExtendedKey)
+    $ do -- FIXME: Make this lazy, so the file is only read once.
+      extendedKey <- fmap Right <$> readFileTextEnvelope (AsSigningKey AsPaymentExtendedKey) file
+      plainKey    <- fmap Left  <$> readFileTextEnvelope (AsSigningKey AsPaymentKey        ) file
+      return $ extendedKey <> plainKey
 
 
 -- | Extract a stake address from a payment address.
