@@ -10,7 +10,7 @@ module Mantis.Command.Watch (
 ) where
 
 
-import Cardano.Api (AssetId(..), AsType(AsAssetName, AsPolicyId), BlockHeader(..), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), TxOut(..), TxOutValue(..), deserialiseFromRawBytes, deserialiseFromRawBytesHex, selectAsset, valueToList)
+import Cardano.Api (AssetId(..), AsType(AsAssetName, AsPolicyId), BlockHeader(..), BlockNo(..), ChainPoint(..), ChainTip(..), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), SlotNo(..), TxOut(..), TxOutValue(..), deserialiseFromRawBytes, deserialiseFromRawBytesHex, selectAsset, valueToList)
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Mantis.Chain (Reverter, watchTransactions)
@@ -137,6 +137,15 @@ mainCoin debugIO configFile policyId assetName continue =
 reportReversion :: Reverter
 reportReversion point tip =
   do
+    let
+      pointSlot =
+        case point of
+          ChainPointAtGenesis -> SlotNo 0
+          ChainPoint slot _   -> slot
+      (tipSlot, tipBlock) =
+        case tip of
+          ChainTipAtGenesis     -> (SlotNo 0, BlockNo 0)
+          ChainTip slot _ block -> (slot, block)
     putStrLn "Rollback:"
-    putStrLn $ "  " ++ show point
-    putStrLn $ "  " ++ show tip
+    putStrLn $ "  Point: " ++ show pointSlot
+    putStrLn $ "  Tip: " ++ show tipSlot ++ " " ++ show tipBlock

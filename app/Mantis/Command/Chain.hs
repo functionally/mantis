@@ -4,6 +4,7 @@
 
 module Mantis.Command.Chain (
   command
+, command'
 , main
 ) where
 
@@ -24,8 +25,14 @@ import qualified Options.Applicative   as O
 
 command :: O.Mod O.CommandFields Mantis
 command =
-  O.command "chain-scripts"
+  O.command "watch-scripts"
     $ O.info options (O.progDesc "Download scripts used as transaction witnesses.")
+
+
+command' :: O.Mod O.CommandFields Mantis
+command' =
+  O.command "chain-scripts"
+    $ O.info options (O.progDesc "[Renamed to 'watch-scripts'.]")
 
 
 options :: O.Parser Mantis

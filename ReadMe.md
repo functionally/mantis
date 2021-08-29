@@ -87,7 +87,6 @@ The configuration file contains the basic network information, along with the fu
 	Available commands:
 	  bech32-decode            Decode a Bech32 string.
 	  bech32-encode            Encode a Bech32 string.
-	  chain-scripts            Download scripts used as transaction witnesses.
 	  fingerprint              Compute the Bech32 fingerprint of a token.
 	  info-address             Print information about addresses.
 	  info-tx                  Print contents of transaction files.
@@ -98,6 +97,7 @@ The configuration file contains the basic network information, along with the fu
 	  transact                 Submit Cardano metadata or mint Cardano tokens.
 	  watch-address            Watch transactions at an address.
 	  watch-coin               Watch transactions for a coin.
+	  watch-scripts            Download scripts used as transaction witnesses.
 
 *   [Mint batches of Cardano non-fungible tokens](man/mint.md)
     *   `mantis mint`
@@ -106,7 +106,7 @@ The configuration file contains the basic network information, along with the fu
 *   [Construct a minting script and compute its Policy ID](man/script.md)
     *   `mantis script`
 *   [Download information from all blocks and transactions](man/watch.md)
-    *   `mantis chain-scripts`
+    *   `mantis watch-scripts`
     *   `mantis watch-address`
     *   `mantis watch-coin`
 *   [Encoding and decoding Bech32 text](man/bech32.md)

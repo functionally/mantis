@@ -48,13 +48,14 @@ main version =
                   <$> verboseOption
                   <*> O.hsubparser (
                            Bech32.command
-                        <> Chain.command
+                        <> Chain.command'
                         <> Fingerprint.command
                         <> Info.command
                         <> Mint.command
                         <> Script.command
                         <> Transact.command
                         <> Watch.command
+                        <> Chain.command
                       )
                 )
           )
