@@ -13,7 +13,8 @@
 -----------------------------------------------------------------------------
 
 
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 
 module Mantis.Query (
@@ -28,8 +29,8 @@ module Mantis.Query (
 ) where
 
 
-import Cardano.Api (AddressAny, CardanoMode, ChainTip(..), ConsensusModeParams, EraInMode(MaryEraInCardanoMode), LocalNodeConnectInfo(..), MaryEra, NetworkId, QueryInEra(QueryInShelleyBasedEra), QueryInMode(..), ShelleyBasedEra(ShelleyBasedEraMary), SlotNo(..), Tx, TxInMode(..), TxValidationErrorInMode, getLocalChainTip, queryNodeLocalState, submitTxToNodeLocal)
-import Cardano.Api.Shelley (ProtocolParameters, QueryInShelleyBasedEra(..), UTxO)
+import Cardano.Api (AddressAny, CardanoMode, ChainTip(..), ConsensusMode(CardanoMode), ConsensusModeParams, IsCardanoEra(..), IsShelleyBasedEra(..), LocalNodeConnectInfo(..), NetworkId, QueryInEra(QueryInShelleyBasedEra), QueryInMode(..), ShelleyBasedEra, SlotNo(..), Tx, TxInMode(..), TxValidationErrorInMode, getLocalChainTip, queryNodeLocalState, shelleyBasedToCardanoEra, submitTxToNodeLocal, toEraInMode)
+import Cardano.Api.Shelley (ProtocolParameters, QueryInShelleyBasedEra(..), QueryUTxOFilter(..), UTxO)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Mantis.Types (MantisM, SlotRef(..), foistMantisEither, foistMantisEitherIO)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Type (SubmitResult)
@@ -62,57 +63,66 @@ adjustSlot (RelativeSlot delta) (SlotNo slot) = SlotNo $ slot + fromIntegral del
 
 
 -- | Find the protocol parameters.
-queryProtocol :: MonadFail m
+queryProtocol :: IsShelleyBasedEra era
+              => MonadFail m
               => MonadIO m
-              => FilePath                        -- ^ Path to the node's socket.
+              => ShelleyBasedEra era             -- ^ The era.
+              -> FilePath                        -- ^ Path to the node's socket.
               -> ConsensusModeParams CardanoMode -- ^ The consensus mode.
               -> NetworkId                       -- ^ The network.
               -> MantisM m ProtocolParameters    -- ^ Action to find the protocol parameters.
-queryProtocol socketPath mode network =
+queryProtocol sbe socketPath mode network =
   do
     let
+      Just eraInMode = toEraInMode (shelleyBasedToCardanoEra sbe) CardanoMode
       localNodeConnInfo = LocalNodeConnectInfo mode network socketPath
     pparams <-
       foistMantisEitherIO
         . queryNodeLocalState localNodeConnInfo Nothing
-        . QueryInEra MaryEraInCardanoMode
-        $ QueryInShelleyBasedEra ShelleyBasedEraMary QueryProtocolParameters
+        . QueryInEra eraInMode
+        $ QueryInShelleyBasedEra shelleyBasedEra QueryProtocolParameters
     foistMantisEither pparams
 
 
 -- | Find UTxOs at an address.
-queryUTxO :: MonadFail m
+queryUTxO :: IsCardanoEra era
+          => MonadFail m
           => MonadIO m
-          => FilePath                        -- ^ Path to the node's socket.
+          => ShelleyBasedEra era             -- ^ The era.
+          -> FilePath                        -- ^ Path to the node's socket.
           -> ConsensusModeParams CardanoMode -- ^ The consensus mode.
           -> AddressAny                      -- ^ The address.
           -> NetworkId                       -- ^ The network.
-          -> MantisM m (UTxO MaryEra)        -- ^ Action to find the UTxOs.
-queryUTxO socketPath mode address network =
+          -> MantisM m (UTxO era)            -- ^ Action to find the UTxOs.
+queryUTxO sbe socketPath mode address network =
   do
     let
+      Just eraInMode = toEraInMode (shelleyBasedToCardanoEra sbe) CardanoMode
       localNodeConnInfo = LocalNodeConnectInfo mode network socketPath
     utxo <-
       foistMantisEitherIO
         . queryNodeLocalState localNodeConnInfo Nothing
-        . QueryInEra MaryEraInCardanoMode
-        . QueryInShelleyBasedEra ShelleyBasedEraMary
+        . QueryInEra eraInMode
+        . QueryInShelleyBasedEra sbe
         . QueryUTxO
-        . Just
+        . QueryUTxOByAddress
         $ S.singleton address
     foistMantisEither utxo
 
 
 -- | Submit a transaction.
-submitTransaction :: MonadIO m
-                  => FilePath                                                       -- ^ Path to the node's socket.
+submitTransaction :: IsCardanoEra era
+                  => MonadIO m
+                  => ShelleyBasedEra era                                            -- ^ The era.
+                  -> FilePath                                                       -- ^ Path to the node's socket.
                   -> ConsensusModeParams CardanoMode                                -- ^ The consensus mode.
                   -> NetworkId                                                      -- ^ The network.
-                  -> Tx MaryEra                                                     -- ^ The transaction.
+                  -> Tx era                                                         -- ^ The transaction.
                   -> MantisM m (SubmitResult (TxValidationErrorInMode CardanoMode)) -- ^ Action to submit the transaction and return its result.
-submitTransaction socketPath mode network tx =
+submitTransaction sbe socketPath mode network tx =
   do
     let
+      Just eraInMode = toEraInMode (shelleyBasedToCardanoEra sbe) CardanoMode
       localNodeConnInfo = LocalNodeConnectInfo mode network socketPath
     liftIO $ submitTxToNodeLocal localNodeConnInfo
-      $ TxInMode tx MaryEraInCardanoMode
+      $ TxInMode tx eraInMode

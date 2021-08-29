@@ -19,32 +19,31 @@ module Mantis.Script (
 ) where
 
 
-import Cardano.Api (Hash, MaryEra, PaymentKey, SimpleScript(..), Script(..), ScriptHash, ScriptInEra(..), ScriptLanguageInEra(..), SimpleScript(..), SimpleScriptVersion(..), SlotNo, TimeLocksSupported(..), hashScript)
+import Cardano.Api (Hash, PaymentKey, SimpleScript(..), Script(..), ScriptHash, SimpleScript(..), SimpleScriptV2, SimpleScriptVersion(..), SlotNo, TimeLocksSupported(..), hashScript)
 
 
 -- | Create a minting script.
-mintingScript :: Hash PaymentKey                   -- ^ The hash of the payment key.
-              -> Maybe SlotNo                      -- ^ The last slot on which minting can occur, if any.
-              -> (ScriptInEra MaryEra, ScriptHash) -- ^ The script and its hash.
+mintingScript :: Hash PaymentKey                           -- ^ The hash of the payment key.
+              -> Maybe SlotNo                              -- ^ The last slot on which minting can occur, if any.
+              -> (SimpleScript SimpleScriptV2, ScriptHash) -- ^ The script and its hash.
 mintingScript hash Nothing =
   let
-    script = SimpleScript SimpleScriptV2
-      $ RequireSignature hash
+    script = RequireSignature hash
   in
     (
-      ScriptInEra SimpleScriptV2InMary script
-    , hashScript script
+      script
+    , hashScript $ SimpleScript SimpleScriptV2 script
     )
 mintingScript hash (Just slot) =
   let
-    script = SimpleScript SimpleScriptV2
-      $ RequireAllOf
-      [
-        RequireSignature hash
-      , RequireTimeBefore TimeLocksInSimpleScriptV2 slot
-      ]
+    script =
+      RequireAllOf
+        [
+          RequireSignature hash
+        , RequireTimeBefore TimeLocksInSimpleScriptV2 slot
+        ]
   in
     (
-      ScriptInEra SimpleScriptV2InMary script
-    , hashScript script
+      script
+    , hashScript $ SimpleScript SimpleScriptV2 script
     )

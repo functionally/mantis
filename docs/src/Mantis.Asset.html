@@ -50,9 +50,9 @@
 </span><span id="line-47"></span><span>                      </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span> </span><span class="hs-comment">-- ^ The bytes of the asset name.</span><span>
 </span><span id="line-48"></span><span>                      </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
 </span><span id="line-49"></span><span id="assetFingerprintBytes"><span class="annot"><span class="annottext">assetFingerprintBytes :: ByteString -&gt; ByteString -&gt; Text
-</span><a href="Mantis.Asset.html#assetFingerprintBytes"><span class="hs-identifier hs-var hs-var">assetFingerprintBytes</span></a></span></span><span> </span><span id="local-6989586621679124164"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679124164"><span class="hs-identifier hs-var">policyId</span></a></span></span><span> </span><span id="local-6989586621679124163"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679124163"><span class="hs-identifier hs-var">assetName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Mantis.Asset.html#assetFingerprintBytes"><span class="hs-identifier hs-var hs-var">assetFingerprintBytes</span></a></span></span><span> </span><span id="local-6989586621679142978"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679142978"><span class="hs-identifier hs-var">policyId</span></a></span></span><span> </span><span id="local-6989586621679142977"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679142977"><span class="hs-identifier hs-var">assetName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-50"></span><span>  </span><span class="annot"><span class="annottext">HumanReadablePart -&gt; DataPart -&gt; Text
 </span><span class="hs-identifier hs-var">encodeLenient</span></span><span> </span><span class="annot"><span class="annottext">HumanReadablePart
 </span><a href="Mantis.Asset.html#assetPrefix"><span class="hs-identifier hs-var">assetPrefix</span></a></span><span>
@@ -81,32 +81,32 @@ ba -&gt; Digest a
 </span><span id="line-54"></span><span>    </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; ByteString -&gt; Text
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679124164"><span class="hs-identifier hs-var">policyId</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; ByteString
+</span><a href="#local-6989586621679142978"><span class="hs-identifier hs-var">policyId</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; ByteString
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679124163"><span class="hs-identifier hs-var">assetName</span></a></span><span>
+</span><a href="#local-6989586621679142977"><span class="hs-identifier hs-var">assetName</span></a></span><span>
 </span><span id="line-55"></span><span>
 </span><span id="line-56"></span><span>
 </span><span id="line-57"></span><span class="hs-comment">-- | Compute an asset fingerprint.</span><span>
-</span><span id="line-58"></span><span id="local-6989586621679124161"><span class="annot"><a href="Mantis.Asset.html#assetFingerprintString"><span class="hs-identifier hs-type">assetFingerprintString</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679124161"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-58"></span><span id="local-6989586621679142975"><span class="annot"><a href="Mantis.Asset.html#assetFingerprintString"><span class="hs-identifier hs-type">assetFingerprintString</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679142975"><span class="hs-identifier hs-type">m</span></a></span><span>
 </span><span id="line-59"></span><span>                       </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>         </span><span class="hs-comment">-- ^ The policy ID string.</span><span>
 </span><span id="line-60"></span><span>                       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>         </span><span class="hs-comment">-- ^ The asset name string.</span><span>
-</span><span id="line-61"></span><span>                       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Types.html#MantisM"><span class="hs-identifier hs-type">MantisM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679124161"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-comment">-- ^ Action for computing the fingerprint.</span></span><span>
+</span><span id="line-61"></span><span>                       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Types.html#MantisM"><span class="hs-identifier hs-type">MantisM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142975"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-comment">-- ^ Action for computing the fingerprint.</span></span><span>
 </span><span id="line-62"></span><span id="assetFingerprintString"><span class="annot"><span class="annottext">assetFingerprintString :: String -&gt; String -&gt; MantisM m Text
-</span><a href="Mantis.Asset.html#assetFingerprintString"><span class="hs-identifier hs-var hs-var">assetFingerprintString</span></a></span></span><span> </span><span id="local-6989586621679124160"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679124160"><span class="hs-identifier hs-var">policyId</span></a></span></span><span> </span><span id="local-6989586621679124159"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679124159"><span class="hs-identifier hs-var">assetName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Mantis.Asset.html#assetFingerprintString"><span class="hs-identifier hs-var hs-var">assetFingerprintString</span></a></span></span><span> </span><span id="local-6989586621679142974"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679142974"><span class="hs-identifier hs-var">policyId</span></a></span></span><span> </span><span id="local-6989586621679142973"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679142973"><span class="hs-identifier hs-var">assetName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-63"></span><span>  </span><span class="hs-keyword">let</span><span>
-</span><span id="line-64"></span><span>    </span><span id="local-6989586621679124158"><span class="annot"><span class="annottext">assetName' :: ByteString
-</span><a href="#local-6989586621679124158"><span class="hs-identifier hs-var hs-var">assetName'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; ByteString
+</span><span id="line-64"></span><span>    </span><span id="local-6989586621679142972"><span class="annot"><span class="annottext">assetName' :: ByteString
+</span><a href="#local-6989586621679142972"><span class="hs-identifier hs-var hs-var">assetName'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; ByteString
 </span><span class="hs-identifier hs-var">BS.pack</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679124159"><span class="hs-identifier hs-var">assetName</span></a></span><span>
+</span><a href="#local-6989586621679142973"><span class="hs-identifier hs-var">assetName</span></a></span><span>
 </span><span id="line-65"></span><span>  </span><span class="hs-keyword">in</span><span>
 </span><span id="line-66"></span><span>    </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; MantisM m ByteString -&gt; MantisM m Text
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Text
 </span><a href="Mantis.Asset.html#assetFingerprintBytes"><span class="hs-operator hs-var">`assetFingerprintBytes`</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679124158"><span class="hs-identifier hs-var">assetName'</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679142972"><span class="hs-identifier hs-var">assetName'</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-67"></span><span>     </span><span class="annot"><span class="annottext">(MantisM m ByteString -&gt; MantisM m Text)
 -&gt; (ByteString -&gt; MantisM m ByteString)
 -&gt; ByteString
@@ -128,17 +128,17 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ByteString
 </span><span class="hs-identifier hs-var">BS.pack</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679124160"><span class="hs-identifier hs-var">policyId</span></a></span><span>
+</span><a href="#local-6989586621679142974"><span class="hs-identifier hs-var">policyId</span></a></span><span>
 </span><span id="line-70"></span><span>
 </span><span id="line-71"></span><span>
 </span><span id="line-72"></span><span class="hs-comment">-- | Compute an asset fingerprint.</span><span>
-</span><span id="line-73"></span><span id="local-6989586621679124157"><span class="annot"><a href="Mantis.Asset.html#assetFingerprint"><span class="hs-identifier hs-type">assetFingerprint</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679124157"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-73"></span><span id="local-6989586621679142971"><span class="annot"><a href="Mantis.Asset.html#assetFingerprint"><span class="hs-identifier hs-type">assetFingerprint</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679142971"><span class="hs-identifier hs-type">m</span></a></span><span>
 </span><span id="line-74"></span><span>                 </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AssetId</span></span><span>        </span><span class="hs-comment">-- ^ The asset ID.</span><span>
-</span><span id="line-75"></span><span>                 </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Types.html#MantisM"><span class="hs-identifier hs-type">MantisM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679124157"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-comment">-- ^ Action for computing the fingerprint.</span></span><span>
+</span><span id="line-75"></span><span>                 </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantis.Types.html#MantisM"><span class="hs-identifier hs-type">MantisM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142971"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-comment">-- ^ Action for computing the fingerprint.</span></span><span>
 </span><span id="line-76"></span><span id="assetFingerprint"><span class="annot"><span class="annottext">assetFingerprint :: AssetId -&gt; MantisM m Text
-</span><a href="Mantis.Asset.html#assetFingerprint"><span class="hs-identifier hs-var hs-var">assetFingerprint</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AssetId</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PolicyId</span></span><span> </span><span id="local-6989586621679124154"><span class="annot"><span class="annottext">ScriptHash
-</span><a href="#local-6989586621679124154"><span class="hs-identifier hs-var">scriptHash</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AssetName</span></span><span> </span><span id="local-6989586621679124152"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679124152"><span class="hs-identifier hs-var">assetName</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Mantis.Asset.html#assetFingerprint"><span class="hs-identifier hs-var hs-var">assetFingerprint</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AssetId</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PolicyId</span></span><span> </span><span id="local-6989586621679142968"><span class="annot"><span class="annottext">ScriptHash
+</span><a href="#local-6989586621679142968"><span class="hs-identifier hs-var">scriptHash</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AssetName</span></span><span> </span><span id="local-6989586621679142966"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679142966"><span class="hs-identifier hs-var">assetName</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-77"></span><span>  </span><span class="annot"><span class="annottext">Text -&gt; MantisM m Text
 forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
 </span><span class="hs-identifier hs-var">return</span></span><span>
@@ -149,9 +149,9 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-79"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ScriptHash -&gt; ByteString
 forall a. SerialiseAsRawBytes a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialiseToRawBytes</span></span><span> </span><span class="annot"><span class="annottext">ScriptHash
-</span><a href="#local-6989586621679124154"><span class="hs-identifier hs-var">scriptHash</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679142968"><span class="hs-identifier hs-var">scriptHash</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-80"></span><span>      </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679124152"><span class="hs-identifier hs-var">assetName</span></a></span><span>
+</span><a href="#local-6989586621679142966"><span class="hs-identifier hs-var">assetName</span></a></span><span>
 </span><span id="line-81"></span><span class="annot"><a href="Mantis.Asset.html#assetFingerprint"><span class="hs-identifier hs-var">assetFingerprint</span></a></span><span> </span><span class="annot"><span class="annottext">AssetId
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; MantisM m Text
 forall (m :: * -&gt; *) a. Monad m =&gt; String -&gt; MantisM m a

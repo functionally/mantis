@@ -21,7 +21,7 @@ The `MINTING_FILE` must be a JSON-formatted object with keys equal to the asset 
 	{
 	  "First Token" : {
 	    "name"        : "First Token"
-	  , "description" : "A first example token
+	  , "description" : "A first example token"
 	  , "ticker"      : "TOK-1"
 	  , "copyright"   : "(c) 2021 My Name"
 	  , "image"       : "ipfs://QmSLFyen7pmtU5wGRwQbjbB5b8c5RKqCzidjbDGnc9ddVV"
@@ -31,7 +31,7 @@ The `MINTING_FILE` must be a JSON-formatted object with keys equal to the asset 
 	  },
 	  "Second Token" : {
 	    "name"        : "Second Token"
-	  , "description" : "A second example token
+	  , "description" : "A second example token"
 	  , "ticker"      : "TOK-2"
 	  , "copyright"   : "(c) 2021 My Name"
 	  , "image"       : "ipfs://Qmcb3dyCuNQCj4KkeC8BXBkWX9ToNC3aAtpGTYzG9BMxHi"

@@ -3,9 +3,9 @@
 
 ## Download scripts from blockchain
 
-	$ mantis chain-scripts --help
+	$ mantis watch-scripts --help
 	
-	Usage: mantis chain-scripts CONFIG_FILE [--output OUTPUT_DIR]
+	Usage: mantis watch-scripts CONFIG_FILE [--output OUTPUT_DIR]
 	  Download scripts used as transaction witnesses.
 	
 	Available options:

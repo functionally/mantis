@@ -51,7 +51,7 @@ import System.IO (hPutStrLn, stderr)
 
 -- | Mantis monad.
 newtype MantisM m a = MantisM {runMantisM :: ExceptT String m a}
-  deriving (Applicative, Functor, Monad, MonadError String, MonadFail, MonadIO) 
+  deriving (Applicative, Functor, Monad, MonadError String, MonadFail, MonadIO)
 
 
 -- | Lift in the Mantis monad.
@@ -138,7 +138,7 @@ logMantis :: MonadIO m
 logMantis out =
   liftIO
     . if out
-        then putStrLn 
+        then putStrLn
         else hPutStrLn stderr
 
 
