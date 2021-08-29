@@ -2,7 +2,7 @@ cabal-version: >= 1.10
 
 name              : mantis
 description       : This tool provides several script-oriented utilities for the Cardano blockchain. In particular, it posts metadata or mints/burns tokens. It can also generate scripts, compute script addresses, compute the fingerprint of a token, and download scripts.
-version           : 0.2.13.2
+version           : 0.3.0.3
 license           : MIT
 license-file      : LICENSE
 author            : Brian W Bush
@@ -27,7 +27,9 @@ library
                   , bech32
                   , bytestring
                   , cardano-api
+                  , cardano-ledger-core
                   , cardano-ledger-shelley-ma
+                  , cardano-ledger-alonzo
                   , containers
                   , cryptonite
                   , extra
@@ -36,6 +38,7 @@ library
                   , mtl
                   , ouroboros-network
                   , shelley-spec-ledger
+                  , strict-containers
                   , text
                   , transformers
                   , transformers-except

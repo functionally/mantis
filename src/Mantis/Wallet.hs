@@ -21,19 +21,20 @@ module Mantis.Wallet (
 -- * Keys
   SomePaymentVerificationKey
 , readVerificationKey
+, SomePaymentSigningKey
 , readSigningKey
 , makeVerificationKeyHash
 -- * Addresses
 , readAddress
 , showAddress
-, showAddressMary
+, showAddressInEra
 -- * Stake addresses
 , stakeReference
-, stakeReferenceMary
+, stakeReferenceInEra
 ) where
 
 
-import Cardano.Api (AddressAny(..), AddressInEra(..), AddressTypeInEra(ShelleyAddressInEra), AsType(..), Hash, MaryEra, PaymentExtendedKey, PaymentExtendedKey, PaymentKey, ShelleyBasedEra(ShelleyBasedEraMary), SigningKey, StakeAddressReference(NoStakeAddress), VerificationKey, castVerificationKey, deserialiseAddress, readFileTextEnvelope, serialiseAddress, verificationKeyHash)
+import Cardano.Api (AddressAny(..), AddressInEra(..), AddressTypeInEra(ShelleyAddressInEra), AsType(..), Hash, IsCardanoEra, IsShelleyBasedEra(..), PaymentExtendedKey, PaymentExtendedKey, PaymentKey, SigningKey, StakeAddressReference(NoStakeAddress), VerificationKey, castVerificationKey, deserialiseAddress, readFileTextEnvelope, serialiseAddress, verificationKeyHash)
 import Control.Monad.IO.Class (MonadIO)
 import Mantis.Types (MantisM, foistMantisEitherIO, foistMantisMaybe)
 
@@ -55,13 +56,14 @@ readAddress =
 showAddress :: AddressAny -- ^ The address.
             -> String     -- ^ The string representation.
 showAddress = T.unpack . serialiseAddress
-  
 
--- | Show a Mary address.
-showAddressMary :: AddressInEra MaryEra -- ^ The address.
-                -> String               -- ^ The string representation.
-showAddressMary = T.unpack . serialiseAddress
-  
+
+-- | Show a era-based address.
+showAddressInEra :: IsCardanoEra era
+                 => AddressInEra era -- ^ The address.
+                 -> String           -- ^ The string representation.
+showAddressInEra = T.unpack . serialiseAddress
+
 
 -- | A payment verification key.
 type SomePaymentVerificationKey = Either (VerificationKey PaymentKey) (VerificationKey PaymentExtendedKey)
@@ -87,13 +89,20 @@ makeVerificationKeyHash =
     . either id castVerificationKey
 
 
+-- | A payment signing key.
+type SomePaymentSigningKey = Either (SigningKey PaymentKey) (SigningKey PaymentExtendedKey)
+
+
 -- | Read a signing key.
 readSigningKey :: MonadIO m
-               => FilePath                                  -- ^ Path to the key.
-               -> MantisM m (SigningKey PaymentExtendedKey) -- ^ Action to read the key.
-readSigningKey =
+               => FilePath                        -- ^ Path to the key.
+               -> MantisM m SomePaymentSigningKey -- ^ Action to read the key.
+readSigningKey file =
   foistMantisEitherIO
-    . readFileTextEnvelope (AsSigningKey AsPaymentExtendedKey)
+    $ do -- FIXME: Make this lazy, so the file is only read once.
+      extendedKey <- fmap Right <$> readFileTextEnvelope (AsSigningKey AsPaymentExtendedKey) file
+      plainKey    <- fmap Left  <$> readFileTextEnvelope (AsSigningKey AsPaymentKey        ) file
+      return $ extendedKey <> plainKey
 
 
 -- | Extract a stake address from a payment address.
@@ -104,7 +113,8 @@ stakeReference _                                               = NoStakeAddress
 
 
 -- | Extract a stake address from a payment address.
-stakeReferenceMary :: AddressInEra MaryEra  -- ^ The payment address.
+stakeReferenceInEra :: IsShelleyBasedEra era
+                    => AddressInEra era     -- ^ The payment address.
                    -> StakeAddressReference -- ^ The stake address.
-stakeReferenceMary (AddressInEra (ShelleyAddressInEra ShelleyBasedEraMary) (Shelley.ShelleyAddress _ _  s)) = Shelley.fromShelleyStakeReference s
-stakeReferenceMary _                                                                                        = NoStakeAddress
+stakeReferenceInEra (AddressInEra (ShelleyAddressInEra _) (Shelley.ShelleyAddress _ _  s)) = Shelley.fromShelleyStakeReference s
+stakeReferenceInEra _                                                                      = NoStakeAddress

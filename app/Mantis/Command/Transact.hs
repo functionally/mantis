@@ -8,16 +8,16 @@ module Mantis.Command.Transact (
 ) where
 
 
-import Cardano.Api (CardanoEra(MaryEra), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), anyAddressInEra, getTxId, makeTransactionBody)
-import Cardano.Api.Shelley (ShelleyWitnessSigningKey(..), TxOut(..), TxOutValue(..), UTxO(..), makeScriptWitness, makeSignedTransaction, makeShelleyKeyWitness)
+import Cardano.Api (ConsensusModeParams(CardanoModeParams), EpochSlots(..), IsShelleyBasedEra, NetworkId(..), NetworkMagic(..), ShelleyBasedEra, TxOutDatumHash(..), anyAddressInEra, getTxId, makeTransactionBody, multiAssetSupportedInEra, shelleyBasedToCardanoEra)
+import Cardano.Api.Shelley (ShelleyWitnessSigningKey(..), TxOut(..), TxOutValue(..), UTxO(..), makeSignedTransaction, makeShelleyKeyWitness)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Extra (whenJust)
 import Data.Aeson (encode)
 import Data.Aeson.Encode.Pretty (encodePretty)
-import Data.Maybe (fromMaybe, maybeToList)
+import Data.Maybe (fromMaybe)
 import Mantis.Command.Types (Configuration(..), Mantis(..))
 import Mantis.Query (adjustSlot, queryProtocol, queryTip, queryUTxO, submitTransaction)
-import Mantis.Transaction (includeFee, makeMinting, makeTransaction, printUTxO, printValue, readMetadata, summarizeValues, supportedMultiAsset)
+import Mantis.Transaction (includeFee, makeMinting, makeTransaction, printUTxO, printValue, readMetadata, summarizeValues)
 import Mantis.Types (MantisM, SlotRef, foistMantisEither, printMantis)
 import Mantis.Wallet (makeVerificationKeyHash, readAddress, readSigningKey, readVerificationKey)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Type (SubmitResult(..))
@@ -45,9 +45,11 @@ options =
     <*> O.optional (O.strOption     $ O.long "metadata" <> O.metavar "METADATA_FILE" <> O.help "Path to metadata JSON file."                                                               )
 
 
-main :: MonadFail m
+main :: IsShelleyBasedEra era
+     => MonadFail m
      => MonadIO m
-     => (String -> MantisM m ())
+     => ShelleyBasedEra era
+     -> (String -> MantisM m ())
      -> FilePath
      -> Maybe String
      -> Maybe Integer
@@ -56,11 +58,12 @@ main :: MonadFail m
      -> Maybe FilePath
      -> Maybe FilePath
      -> MantisM m ()
-main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile =
+main sbe debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptFile metadataFile =
   do
     Configuration{..} <- liftIO $ read <$> readFile configFile
 
     let
+      era = shelleyBasedToCardanoEra sbe
       protocol = CardanoModeParams $ EpochSlots epochSlots
       network = maybe Mainnet (Testnet . NetworkMagic) magic
     debugMantis ""
@@ -72,7 +75,7 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
     let
       before = (`adjustSlot` tip) <$> tokenSlot
 
-    pparams <- queryProtocol socketPath protocol network
+    pparams <- queryProtocol sbe socketPath protocol network
     debugMantis ""
     debugMantis $ "Protocol parameters: " ++ LBS.unpack (encode pparams)
 
@@ -92,7 +95,7 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
 
     debugMantis ""
     debugMantis "Unspent UTxO:"
-    utxo@(UTxO utxo') <- queryUTxO socketPath protocol address network
+    utxo@(UTxO utxo') <- queryUTxO sbe socketPath protocol address network
     printUTxO "  " utxo
 
     let
@@ -106,47 +109,48 @@ main debugMantis configFile tokenName tokenCount tokenSlot outputAddress scriptF
     debugMantis "Metadata . . . read and parsed."
 
     let
-      (script, minting, value') =
+      (scriptMinting, value') =
         case tokenName of
-          Nothing   -> (Nothing, Nothing, value)
+          Nothing   -> (Nothing, value)
           Just name -> let
-                         (script', minting', value'') = makeMinting
+                         (scriptMinting', value'') = makeMinting
                                                           value
                                                           name
                                                           (fromMaybe 1 tokenCount)
                                                           verificationKeyHash
                                                           before
                        in
-                         (Just script', Just minting', value'')
-    debugMantis ""
-    debugMantis $ "Policy: " ++ show script
-    debugMantis ""
-    debugMantis $ "Minting: " ++ show minting
-
-    liftIO
-      $ whenJust scriptFile
-       (`LBS.writeFile` encodePretty script)
+                         (Just scriptMinting', value'')
+    whenJust scriptMinting
+      $ \(_, script, minting) ->
+        do
+          debugMantis ""
+          debugMantis $ "Policy: " ++ show script
+          debugMantis ""
+          debugMantis $ "Minting: " ++ show minting
+          liftIO
+            $ whenJust scriptFile
+             (`LBS.writeFile` encodePretty script)
 
     let
-      Just address'' = anyAddressInEra MaryEra address'
+      Just address'' = anyAddressInEra era address'
+      Right supportedMultiAsset = multiAssetSupportedInEra era
     txBody <- includeFee network pparams nIn 1 1 0
-      $ makeTransaction 
+      $ makeTransaction
         (M.keys utxo')
-        [TxOut address'' (TxOutValue supportedMultiAsset value')]
+        [TxOut address'' (TxOutValue supportedMultiAsset value') TxOutDatumHashNone]
         before
         metadata
-        Nothing
-        minting
+        scriptMinting
     txRaw <- foistMantisEither $ makeTransactionBody txBody
     debugMantis ""
     debugMantis $ "Transaction: " ++ show txRaw
 
     let
       witness = makeShelleyKeyWitness txRaw
-        $ WitnessPaymentExtendedKey signingKey
-      witness' = makeScriptWitness <$> script
-      txSigned = makeSignedTransaction (witness : maybeToList witness') txRaw
-    result <- submitTransaction socketPath protocol network txSigned
+        $ either WitnessPaymentKey WitnessPaymentExtendedKey signingKey
+      txSigned = makeSignedTransaction [witness] txRaw
+    result <- submitTransaction sbe socketPath protocol network txSigned
     debugMantis ""
     case result of
       SubmitSuccess     -> printMantis $ "Success: " ++ show (getTxId txRaw)
