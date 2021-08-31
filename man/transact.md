@@ -1,8 +1,8 @@
 # Submit Cardano metadata or mint Cardano tokens
 
-	$ mantis transact --help
+	$ mantra transact --help
 	
-	Usage: mantis transact CONFIG_FILE [TOKEN] [--count INTEGER] [--expires SLOT] 
+	Usage: mantra transact CONFIG_FILE [TOKEN] [--count INTEGER] [--expires SLOT] 
 	                       [--output ADDRESS] [--script SCRIPT_FILE] 
 	                       [--metadata METADATA_FILE]
 	  Submit Cardano metadata or mint Cardano tokens.

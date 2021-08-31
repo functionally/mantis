@@ -3,9 +3,9 @@
 
 ## Encoding
 
-	$ mantis bech32-decode --help
+	$ mantra bech32-decode --help
 	
-	Usage: mantis bech32-decode BECH32
+	Usage: mantra bech32-decode BECH32
 	  Decode a Bech32 string.
 	
 	Available options:
@@ -15,9 +15,9 @@
 
 ## Decoding
 
-	$ mantis bech32-encode --help
+	$ mantra bech32-encode --help
 	
-	Usage: mantis bech32-encode PREFIX DATA
+	Usage: mantra bech32-encode PREFIX DATA
 	  Encode a Bech32 string.
 	
 	Available options:

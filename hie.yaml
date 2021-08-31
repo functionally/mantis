@@ -1,6 +1,6 @@
 cradle:
   cabal:
-    - component: "lib:mantis"
+    - component: "lib:mantra"
       path: "./src"
-    - component: "exe:mantis"
+    - component: "exe:mantra"
       path: "./app"

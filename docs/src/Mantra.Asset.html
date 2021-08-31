@@ -1,0 +1,160 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-----------------------------------------------------------------------------</span><span>
+</span><span id="line-2"></span><span class="hs-comment">--</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Module      :  $Headers</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Copyright   :  (c) 2021 Brian W Bush</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- License     :  MIT</span><span>
+</span><span id="line-6"></span><span class="hs-comment">--</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Maintainer  :  Brian W Bush &lt;code@functionally.io&gt;</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Stability   :  Experimental</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Portability :  Portable</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- | Asset utilities.</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-----------------------------------------------------------------------------</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-17"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications  #-}</span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Mantra.Asset</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-21"></span><span class="annot"><span class="hs-comment">-- * Assets</span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><a href="Mantra.Asset.html#assetFingerprint"><span class="hs-identifier">assetFingerprint</span></a></span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Asset.html#assetFingerprintString"><span class="hs-identifier">assetFingerprintString</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Asset.html#assetFingerprintBytes"><span class="hs-identifier">assetFingerprintBytes</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">AssetId</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">AssetName</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">PolicyId</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">serialiseToRawBytes</span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Codec.Binary.Bech32</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HumanReadablePart</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">dataPartFromBytes</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">encodeLenient</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">humanReadablePartFromText</span></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crypto.Hash</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">hash</span></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crypto.Hash.Algorithms</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Blake2b_160</span></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteArray</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">convert</span></span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Mantra.Types.html"><span class="hs-identifier">Mantra.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Mantra.Types.html#MantraM"><span class="hs-identifier">MantraM</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Types.html#foistMantraEither"><span class="hs-identifier">foistMantraEither</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Types.html#throwMantra"><span class="hs-identifier">throwMantra</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Char8</span></span><span>  </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BS</span></span><span>     </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ByteString</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">pack</span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Base16</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Base16</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">decode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- | The human-readable prefix for an asset.</span><span>
+</span><span id="line-41"></span><span class="annot"><a href="Mantra.Asset.html#assetPrefix"><span class="hs-identifier hs-type">assetPrefix</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HumanReadablePart</span></span><span>
+</span><span id="line-42"></span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="assetPrefix"><span class="annot"><span class="annottext">HumanReadablePart
+</span><a href="Mantra.Asset.html#assetPrefix"><span class="hs-identifier hs-var">assetPrefix</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either HumanReadablePartError HumanReadablePart
+</span><span class="hs-identifier hs-var">humanReadablePartFromText</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;asset&quot;</span></span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- | Compute an asset fingerprint.</span><span>
+</span><span id="line-46"></span><span class="annot"><a href="Mantra.Asset.html#assetFingerprintBytes"><span class="hs-identifier hs-type">assetFingerprintBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span> </span><span class="hs-comment">-- ^ The bytes of the policy ID.</span><span>
+</span><span id="line-47"></span><span>                      </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span> </span><span class="hs-comment">-- ^ The bytes of the asset name.</span><span>
+</span><span id="line-48"></span><span>                      </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-49"></span><span id="assetFingerprintBytes"><span class="annot"><span class="annottext">assetFingerprintBytes :: ByteString -&gt; ByteString -&gt; Text
+</span><a href="Mantra.Asset.html#assetFingerprintBytes"><span class="hs-identifier hs-var hs-var">assetFingerprintBytes</span></a></span></span><span> </span><span id="local-6989586621679142978"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679142978"><span class="hs-identifier hs-var">policyId</span></a></span></span><span> </span><span id="local-6989586621679142977"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679142977"><span class="hs-identifier hs-var">assetName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-50"></span><span>  </span><span class="annot"><span class="annottext">HumanReadablePart -&gt; DataPart -&gt; Text
+</span><span class="hs-identifier hs-var">encodeLenient</span></span><span> </span><span class="annot"><span class="annottext">HumanReadablePart
+</span><a href="Mantra.Asset.html#assetPrefix"><span class="hs-identifier hs-var">assetPrefix</span></a></span><span>
+</span><span id="line-51"></span><span>    </span><span class="annot"><span class="annottext">(DataPart -&gt; Text)
+-&gt; (ByteString -&gt; DataPart) -&gt; ByteString -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; DataPart
+</span><span class="hs-identifier hs-var">dataPartFromBytes</span></span><span>
+</span><span id="line-52"></span><span>    </span><span class="annot"><span class="annottext">(ByteString -&gt; DataPart)
+-&gt; (ByteString -&gt; ByteString) -&gt; ByteString -&gt; DataPart
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Digest Blake2b_160 -&gt; ByteString
+forall bin bout.
+(ByteArrayAccess bin, ByteArray bout) =&gt;
+bin -&gt; bout
+</span><span class="hs-identifier hs-var">convert</span></span><span>
+</span><span id="line-53"></span><span>    </span><span class="annot"><span class="annottext">(Digest Blake2b_160 -&gt; ByteString)
+-&gt; (ByteString -&gt; Digest Blake2b_160) -&gt; ByteString -&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(ByteArrayAccess ByteString, HashAlgorithm Blake2b_160) =&gt;
+ByteString -&gt; Digest Blake2b_160
+forall ba a.
+(ByteArrayAccess ba, HashAlgorithm a) =&gt;
+ba -&gt; Digest a
+</span><span class="hs-identifier hs-var">hash</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Blake2b_160</span></span><span>
+</span><span id="line-54"></span><span>    </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; ByteString -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679142978"><span class="hs-identifier hs-var">policyId</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; ByteString
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679142977"><span class="hs-identifier hs-var">assetName</span></a></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- | Compute an asset fingerprint.</span><span>
+</span><span id="line-58"></span><span id="local-6989586621679142975"><span class="annot"><a href="Mantra.Asset.html#assetFingerprintString"><span class="hs-identifier hs-type">assetFingerprintString</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679142975"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-59"></span><span>                       </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>         </span><span class="hs-comment">-- ^ The policy ID string.</span><span>
+</span><span id="line-60"></span><span>                       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>         </span><span class="hs-comment">-- ^ The asset name string.</span><span>
+</span><span id="line-61"></span><span>                       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Types.html#MantraM"><span class="hs-identifier hs-type">MantraM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142975"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-comment">-- ^ Action for computing the fingerprint.</span></span><span>
+</span><span id="line-62"></span><span id="assetFingerprintString"><span class="annot"><span class="annottext">assetFingerprintString :: String -&gt; String -&gt; MantraM m Text
+</span><a href="Mantra.Asset.html#assetFingerprintString"><span class="hs-identifier hs-var hs-var">assetFingerprintString</span></a></span></span><span> </span><span id="local-6989586621679142974"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679142974"><span class="hs-identifier hs-var">policyId</span></a></span></span><span> </span><span id="local-6989586621679142973"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679142973"><span class="hs-identifier hs-var">assetName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-63"></span><span>  </span><span class="hs-keyword">let</span><span>
+</span><span id="line-64"></span><span>    </span><span id="local-6989586621679142972"><span class="annot"><span class="annottext">assetName' :: ByteString
+</span><a href="#local-6989586621679142972"><span class="hs-identifier hs-var hs-var">assetName'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; ByteString
+</span><span class="hs-identifier hs-var">BS.pack</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679142973"><span class="hs-identifier hs-var">assetName</span></a></span><span>
+</span><span id="line-65"></span><span>  </span><span class="hs-keyword">in</span><span>
+</span><span id="line-66"></span><span>    </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; MantraM m ByteString -&gt; MantraM m Text
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Text
+</span><a href="Mantra.Asset.html#assetFingerprintBytes"><span class="hs-operator hs-var">`assetFingerprintBytes`</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679142972"><span class="hs-identifier hs-var">assetName'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span>     </span><span class="annot"><span class="annottext">(MantraM m ByteString -&gt; MantraM m Text)
+-&gt; (ByteString -&gt; MantraM m ByteString)
+-&gt; ByteString
+-&gt; MantraM m Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Either String ByteString -&gt; MantraM m ByteString
+forall (m :: * -&gt; *) e a.
+(Monad m, Show e) =&gt;
+Either e a -&gt; MantraM m a
+</span><a href="Mantra.Types.html#foistMantraEither"><span class="hs-identifier hs-var">foistMantraEither</span></a></span><span>
+</span><span id="line-68"></span><span>     </span><span class="annot"><span class="annottext">(Either String ByteString -&gt; MantraM m ByteString)
+-&gt; (ByteString -&gt; Either String ByteString)
+-&gt; ByteString
+-&gt; MantraM m ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either String ByteString
+</span><span class="hs-identifier hs-var">Base16.decode</span></span><span>
+</span><span id="line-69"></span><span>     </span><span class="annot"><span class="annottext">(ByteString -&gt; MantraM m Text) -&gt; ByteString -&gt; MantraM m Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ByteString
+</span><span class="hs-identifier hs-var">BS.pack</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679142974"><span class="hs-identifier hs-var">policyId</span></a></span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- | Compute an asset fingerprint.</span><span>
+</span><span id="line-73"></span><span id="local-6989586621679142971"><span class="annot"><a href="Mantra.Asset.html#assetFingerprint"><span class="hs-identifier hs-type">assetFingerprint</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679142971"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-74"></span><span>                 </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AssetId</span></span><span>        </span><span class="hs-comment">-- ^ The asset ID.</span><span>
+</span><span id="line-75"></span><span>                 </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Types.html#MantraM"><span class="hs-identifier hs-type">MantraM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142971"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-comment">-- ^ Action for computing the fingerprint.</span></span><span>
+</span><span id="line-76"></span><span id="assetFingerprint"><span class="annot"><span class="annottext">assetFingerprint :: AssetId -&gt; MantraM m Text
+</span><a href="Mantra.Asset.html#assetFingerprint"><span class="hs-identifier hs-var hs-var">assetFingerprint</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AssetId</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PolicyId</span></span><span> </span><span id="local-6989586621679142968"><span class="annot"><span class="annottext">ScriptHash
+</span><a href="#local-6989586621679142968"><span class="hs-identifier hs-var">scriptHash</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AssetName</span></span><span> </span><span id="local-6989586621679142966"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679142966"><span class="hs-identifier hs-var">assetName</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-77"></span><span>  </span><span class="annot"><span class="annottext">Text -&gt; MantraM m Text
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span>
+</span><span id="line-78"></span><span>    </span><span class="annot"><span class="annottext">(Text -&gt; MantraM m Text) -&gt; Text -&gt; MantraM m Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Text
+</span><a href="Mantra.Asset.html#assetFingerprintBytes"><span class="hs-identifier hs-var">assetFingerprintBytes</span></a></span><span>
+</span><span id="line-79"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ScriptHash -&gt; ByteString
+forall a. SerialiseAsRawBytes a =&gt; a -&gt; ByteString
+</span><span class="hs-identifier hs-var">serialiseToRawBytes</span></span><span> </span><span class="annot"><span class="annottext">ScriptHash
+</span><a href="#local-6989586621679142968"><span class="hs-identifier hs-var">scriptHash</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span>      </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679142966"><span class="hs-identifier hs-var">assetName</span></a></span><span>
+</span><span id="line-81"></span><span class="annot"><a href="Mantra.Asset.html#assetFingerprint"><span class="hs-identifier hs-var">assetFingerprint</span></a></span><span> </span><span class="annot"><span class="annottext">AssetId
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; MantraM m Text
+forall (m :: * -&gt; *) a. Monad m =&gt; String -&gt; MantraM m a
+</span><a href="Mantra.Types.html#throwMantra"><span class="hs-identifier hs-var">throwMantra</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Non-token asset.&quot;</span></span><span>
+</span><span id="line-82"></span></pre></body></html>

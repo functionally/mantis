@@ -1,4 +1,4 @@
-# Mantis Tools for Cardano
+# Mantra Tools for Cardano
 
 This tool provides several script-oriented utilities for the Cardano blockchain.
 
@@ -6,7 +6,7 @@ In particular, it posts metadata or mints/burns tokens. By default, it gathers t
 
 It can also generate scripts, compute script addresses, compute the fingerprint of a token, and download scripts.
 
-Please post questions and issues [here](https://github.com/functionally/mantis/issues).
+Please post questions and issues [here](https://github.com/functionally/mantra/issues).
 
 
 ## Security considerations
@@ -15,9 +15,9 @@ Please post questions and issues [here](https://github.com/functionally/mantis/i
 
 Instead of storing the signing key in a file that is referenced by the configuration file, the tool can read the key from a pipe such as standard input or from a Unix socket. For example, if the key file was encrypted using GnuPG, the following command will pipe the decrypted key into the tool:
 
-	gpg -d my-key.skey.gpg | mantis transact my-config.mantis . . .
+	gpg -d my-key.skey.gpg | mantra transact my-config.mantra . . .
 
-where the configuration file `my-config.mantis` has set the signing key to `/dev/stdin`. Similar, one can use a Unix socket to achieve a similar result:
+where the configuration file `my-config.mantra` has set the signing key to `/dev/stdin`. Similar, one can use a Unix socket to achieve a similar result:
 
 	if [ ! -e payment.skey ]
 	then
@@ -25,7 +25,7 @@ where the configuration file `my-config.mantis` has set the signing key to `/dev
 	fi
 	gpg --pinentry loopback --decrypt payment.skey.gpg > payment.skey &
 	
-	mantis transact my-config.mantis . . .
+	mantra transact my-config.mantra . . .
 
 where the configuration file has set the signing key to the socket `payment.skey`. Both methods avoid storing the unencrypted key in a disk file.
 
@@ -34,18 +34,18 @@ where the configuration file has set the signing key to the socket `payment.skey
 
 This package uses the [`haskell.nix`](https://input-output-hk.github.io/haskell.nix/) build system. Simply clone this repository and execute the build command:
 
-	nix-build -A mantis.components.exes.mantis -o build
+	nix-build -A mantra.components.exes.mantra -o build
 
-The executable result will be in `./build/bin/mantis`.
+The executable result will be in `./build/bin/mantra`.
 
 Alternatively, one can use the `cabal install` installation approach, which relies on the [cabal.project](cabal.project) file and which is known to succeed with cabal 3.4.0.0 and ghc 8.10.4.
 
-A docker image is available at https://github.com/wutzebaer/mantis-docker/.
+A docker image is available at https://github.com/wutzebaer/mantra-docker/.
 
 
 ### Development environment
 
-Due to quirks in how [`haskell.nix`](https://input-output-hk.github.io/haskell.nix/) and [`cabal.project`](https://cabal.readthedocs.io/en/3.4/cabal-project.html) interact, the following procedure needs to be followed to create a development environment for compiling `mantis`:
+Due to quirks in how [`haskell.nix`](https://input-output-hk.github.io/haskell.nix/) and [`cabal.project`](https://cabal.readthedocs.io/en/3.4/cabal-project.html) interact, the following procedure needs to be followed to create a development environment for compiling `mantra`:
 
 1.  Run `nix-shell`. This takes a while to build unless you set `withHoogle = false` in [shell.nix](shell.nix).
 2.  Temporarily comment-out the `source-repository-package` lines in [cabal.project](cabal.project).
@@ -66,17 +66,17 @@ The configuration file contains the basic network information, along with the fu
 | `signingKeyFile`      | Location of the signing key file. This may be `/dev/stdin` or a Unix pipe instead of an actual file. | `"payment.skey"`                                                                                            |
 
 
-*   Sample configuration for `mainnet`: [sample-mainnet.mantis](sample-mainnet.mantis).
-*   Sample configuration for `testnet`: [sample-testnet.mantis](sample-testnet.mantis).
+*   Sample configuration for `mainnet`: [sample-mainnet.mantra](sample-mainnet.mantra).
+*   Sample configuration for `testnet`: [sample-testnet.mantra](sample-testnet.mantra).
 
 
 ## Command-line options
 
-	$ mantis --help
+	$ mantra --help
 	
-	Mantis Cardano tool.
+	Mantra Cardano tool.
 	
-	Usage: mantis [--version] [--quiet] COMMAND
+	Usage: mantra [--version] [--quiet] COMMAND
 	  Utilities for Cardano scripts.
 	
 	Available options:
@@ -100,28 +100,28 @@ The configuration file contains the basic network information, along with the fu
 	  watch-scripts            Download scripts used as transaction witnesses.
 
 *   [Mint batches of Cardano non-fungible tokens](man/mint.md)
-    *   `mantis mint`
+    *   `mantra mint`
 *   [Submit Cardano metadata or mint Cardano tokens](man/transact.md)
-    *   `mantis transact`
+    *   `mantra transact`
 *   [Construct a minting script and compute its Policy ID](man/script.md)
-    *   `mantis script`
+    *   `mantra script`
 *   [Download information from all blocks and transactions](man/watch.md)
-    *   `mantis watch-scripts`
-    *   `mantis watch-address`
-    *   `mantis watch-coin`
+    *   `mantra watch-scripts`
+    *   `mantra watch-address`
+    *   `mantra watch-coin`
 *   [Encoding and decoding Bech32 text](man/bech32.md)
-    *   `mantis bech32-decode`
-    *   `mantis bech32-encode`
+    *   `mantra bech32-decode`
+    *   `mantra bech32-encode`
 *   [Computing the Bech32 fingerprint of a token](man/fingerprint.md)
-    *   `mantis fingerprint`
+    *   `mantra fingerprint`
 *   [Show information about a transaction file or address](man/info.md)
-    *   `mantis info-address`
-    *   `mantis info-tx`
-    *   `mantis info-txbody`
-    *   `mantis info-utxo`
+    *   `mantra info-address`
+    *   `mantra info-tx`
+    *   `mantra info-txbody`
+    *   `mantra info-utxo`
 
 
 API documentation
 -----------------
 
-See https://functionally.github.io/mantis/ for API documentation.
+See https://functionally.github.io/mantra/ for API documentation.

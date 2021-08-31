@@ -3,9 +3,9 @@
 
 ## Download scripts from blockchain
 
-	$ mantis watch-scripts --help
+	$ mantra watch-scripts --help
 	
-	Usage: mantis watch-scripts CONFIG_FILE [--output OUTPUT_DIR]
+	Usage: mantra watch-scripts CONFIG_FILE [--output OUTPUT_DIR]
 	  Download scripts used as transaction witnesses.
 	
 	Available options:
@@ -18,9 +18,9 @@
 
 ## Print transactions at an address
 
-	$ mantis watch-address --help
+	$ mantra watch-address --help
 	
-	Usage: mantis watch-address CONFIG_FILE [ADDRESS] [--continue]
+	Usage: mantra watch-address CONFIG_FILE [ADDRESS] [--continue]
 	  Watch transactions at an address.
 	
 	Available options:
@@ -33,9 +33,9 @@
 
 ## Print transactions involving a policy or asset
 
-	$ mantis watch-coin --help
+	$ mantra watch-coin --help
 	
-	Usage: mantis watch-coin CONFIG_FILE POLICY_ID [ASSET_NAME] [--continue]
+	Usage: mantra watch-coin CONFIG_FILE POLICY_ID [ASSET_NAME] [--continue]
 	  Watch transactions for a coin.
 	
 	Available options:

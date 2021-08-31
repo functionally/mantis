@@ -4,7 +4,7 @@ in
   project.shellFor {
 
     packages = ps: with ps; [
-      mantis
+      mantra
     ];
 
     # Set the following to `false` do disable the lengthy building of documentation.

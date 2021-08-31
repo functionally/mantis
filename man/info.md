@@ -3,8 +3,8 @@
 
 ## Addresses
 
-	$ mantis info-address --help
-	Usage: mantis info-address [ADDRESS]
+	$ mantra info-address --help
+	Usage: mantra info-address [ADDRESS]
 	  Print information about addresses.
 	
 	Available options:
@@ -14,9 +14,9 @@
 
 ## Transaction files
 
-	$ mantis info-tx --help
+	$ mantra info-tx --help
 	
-	Usage: mantis info-tx [TX_FILE]
+	Usage: mantra info-tx [TX_FILE]
 	  Print contents of transaction files.
 	
 	Available options:
@@ -26,8 +26,8 @@
 
 ## Transaction body files
 
-	$ mantis info-txbody --help
-	Usage: mantis info-txbody [TXBODY_FILE]
+	$ mantra info-txbody --help
+	Usage: mantra info-txbody [TXBODY_FILE]
 	  Print contents of transaction body files.
 	
 	Available options:
@@ -37,8 +37,8 @@
 
 ## UTxOs
 
-	$ mantis info-utxo --help
-	Usage: mantis info-utxo CONFIG_FILE [ADDRESS]
+	$ mantra info-utxo --help
+	Usage: mantra info-utxo CONFIG_FILE [ADDRESS]
 	  Print UTxO information for addresses.
 	
 	Available options:

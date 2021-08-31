@@ -1,8 +1,8 @@
 # Mint batches of Cardano non-fungible tokens
 
-	$ mantis mint --help
+	$ mantra mint --help
 	
-	Usage: mantis mint CONFIG_FILE MINTING_FILE [--expires SLOT] [--output ADDRESS] 
+	Usage: mantra mint CONFIG_FILE MINTING_FILE [--expires SLOT] [--output ADDRESS] 
 	                   [--script SCRIPT_FILE] [--metadata METADATA_FILE]
 	  Mint batches of Cardano non-fungible tokens.
 	

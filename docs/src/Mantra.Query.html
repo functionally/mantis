@@ -1,0 +1,431 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-----------------------------------------------------------------------------</span><span>
+</span><span id="line-2"></span><span class="hs-comment">--</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Module      :  $Headers</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Copyright   :  (c) 2021 Brian W Bush</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- License     :  MIT</span><span>
+</span><span id="line-6"></span><span class="hs-comment">--</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Maintainer  :  Brian W Bush &lt;code@functionally.io&gt;</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Stability   :  Experimental</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Portability :  Portable</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- | Querying the blockchain and submitting transactions.</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-----------------------------------------------------------------------------</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-pragma">{-# LANGUAGE GADTs               #-}</span><span>
+</span><span id="line-17"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Mantra.Query</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-21"></span><span class="annot"><span class="hs-comment">-- * Querying</span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><a href="Mantra.Query.html#queryProtocol"><span class="hs-identifier">queryProtocol</span></a></span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Query.html#queryTip"><span class="hs-identifier">queryTip</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Query.html#queryUTxO"><span class="hs-identifier">queryUTxO</span></a></span><span>
+</span><span id="line-25"></span><span class="annot"><span class="hs-comment">-- * Transactions</span></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Query.html#submitTransaction"><span class="hs-identifier">submitTransaction</span></a></span><span>
+</span><span id="line-27"></span><span class="annot"><span class="hs-comment">-- * Slots</span></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Query.html#adjustSlot"><span class="hs-identifier">adjustSlot</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">AddressAny</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">CardanoMode</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ChainTip</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ConsensusMode</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">CardanoMode</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ConsensusModeParams</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">IsCardanoEra</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">IsShelleyBasedEra</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">LocalNodeConnectInfo</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">NetworkId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">QueryInEra</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">QueryInShelleyBasedEra</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">QueryInMode</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ShelleyBasedEra</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SlotNo</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TxInMode</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TxValidationErrorInMode</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getLocalChainTip</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">queryNodeLocalState</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">shelleyBasedToCardanoEra</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">submitTxToNodeLocal</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">toEraInMode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.Shelley</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ProtocolParameters</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">QueryInShelleyBasedEra</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">QueryUTxOFilter</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MonadIO</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">liftIO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Mantra.Types.html"><span class="hs-identifier">Mantra.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Mantra.Types.html#MantraM"><span class="hs-identifier">MantraM</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Types.html#SlotRef"><span class="hs-identifier">SlotRef</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Types.html#foistMantraEither"><span class="hs-identifier">foistMantraEither</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Types.html#foistMantraEitherIO"><span class="hs-identifier">foistMantraEitherIO</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Ouroboros.Network.Protocol.LocalTxSubmission.Type</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">SubmitResult</span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Set</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">S</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">singleton</span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- | Find the tip of the blockchain.</span><span>
+</span><span id="line-42"></span><span id="local-6989586621679142601"><span class="annot"><a href="Mantra.Query.html#queryTip"><span class="hs-identifier hs-type">queryTip</span></a></span><span>
+</span><span id="line-43"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadFail</span></span><span> </span><span class="annot"><a href="#local-6989586621679142601"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-44"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679142601"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-45"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>                        </span><span class="hs-comment">-- ^ Path to the node's socket.</span><span>
+</span><span id="line-46"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConsensusModeParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span> </span><span class="hs-comment">-- ^ The consensus mode.</span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span>                       </span><span class="hs-comment">-- ^ The network.</span><span>
+</span><span id="line-48"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Types.html#MantraM"><span class="hs-identifier hs-type">MantraM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142601"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span>                </span><span class="hs-comment">-- ^ Action to find the slot number.</span></span><span>
+</span><span id="line-49"></span><span id="queryTip"><span class="annot"><span class="annottext">queryTip :: FilePath
+-&gt; ConsensusModeParams CardanoMode -&gt; NetworkId -&gt; MantraM m SlotNo
+</span><a href="Mantra.Query.html#queryTip"><span class="hs-identifier hs-var hs-var">queryTip</span></a></span></span><span> </span><span id="local-6989586621679142600"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679142600"><span class="hs-identifier hs-var">socketPath</span></a></span></span><span> </span><span id="local-6989586621679142599"><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679142599"><span class="hs-identifier hs-var">mode</span></a></span></span><span> </span><span id="local-6989586621679142598"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679142598"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-50"></span><span>  </span><span class="hs-keyword">do</span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-keyword">let</span><span>
+</span><span id="line-52"></span><span>      </span><span id="local-6989586621679142597"><span class="annot"><span class="annottext">localNodeConnInfo :: LocalNodeConnectInfo CardanoMode
+</span><a href="#local-6989586621679142597"><span class="hs-identifier hs-var hs-var">localNodeConnInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+-&gt; NetworkId -&gt; FilePath -&gt; LocalNodeConnectInfo CardanoMode
+forall mode.
+ConsensusModeParams mode
+-&gt; NetworkId -&gt; FilePath -&gt; LocalNodeConnectInfo mode
+</span><span class="hs-identifier hs-var">LocalNodeConnectInfo</span></span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679142599"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679142598"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679142600"><span class="hs-identifier hs-var">socketPath</span></a></span><span>
+</span><span id="line-53"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">ChainTip</span></span><span> </span><span id="local-6989586621679142594"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679142594"><span class="hs-identifier hs-var">slotNo</span></a></span></span><span> </span><span class="annot"><span class="annottext">Hash BlockHeader
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">BlockNo
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO ChainTip -&gt; MantraM m ChainTip
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO ChainTip -&gt; MantraM m ChainTip)
+-&gt; IO ChainTip -&gt; MantraM m ChainTip
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">LocalNodeConnectInfo CardanoMode -&gt; IO ChainTip
+forall mode. LocalNodeConnectInfo mode -&gt; IO ChainTip
+</span><span class="hs-identifier hs-var">getLocalChainTip</span></span><span> </span><span class="annot"><span class="annottext">LocalNodeConnectInfo CardanoMode
+</span><a href="#local-6989586621679142597"><span class="hs-identifier hs-var">localNodeConnInfo</span></a></span><span>
+</span><span id="line-54"></span><span>    </span><span class="annot"><span class="annottext">SlotNo -&gt; MantraM m SlotNo
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679142594"><span class="hs-identifier hs-var">slotNo</span></a></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- | Compute a slot number.</span><span>
+</span><span id="line-58"></span><span class="annot"><a href="Mantra.Query.html#adjustSlot"><span class="hs-identifier hs-type">adjustSlot</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Mantra.Types.html#SlotRef"><span class="hs-identifier hs-type">SlotRef</span></a></span><span> </span><span class="hs-comment">-- ^ The slot reference.</span><span>
+</span><span id="line-59"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span>  </span><span class="hs-comment">-- ^ The current tip.</span><span>
+</span><span id="line-60"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span>  </span><span class="hs-comment">-- ^ The resultant slot number.</span><span>
+</span><span id="line-61"></span><span id="adjustSlot"><span class="annot"><span class="annottext">adjustSlot :: SlotRef -&gt; SlotNo -&gt; SlotNo
+</span><a href="Mantra.Query.html#adjustSlot"><span class="hs-identifier hs-var hs-var">adjustSlot</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Mantra.Types.html#AbsoluteSlot"><span class="hs-identifier hs-type">AbsoluteSlot</span></a></span><span> </span><span id="local-6989586621679142592"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679142592"><span class="hs-identifier hs-var">slot</span></a></span></span><span> </span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SlotNo
+</span><span class="hs-identifier">_</span></span><span>             </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
+</span><span class="hs-identifier hs-var">SlotNo</span></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; SlotNo) -&gt; Word64 -&gt; SlotNo
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Word64
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679142592"><span class="hs-identifier hs-var">slot</span></a></span><span>
+</span><span id="line-62"></span><span class="annot"><a href="Mantra.Query.html#adjustSlot"><span class="hs-identifier hs-var">adjustSlot</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Mantra.Types.html#RelativeSlot"><span class="hs-identifier hs-type">RelativeSlot</span></a></span><span> </span><span id="local-6989586621679142589"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679142589"><span class="hs-identifier hs-var">delta</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span> </span><span id="local-6989586621679142588"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679142588"><span class="hs-identifier hs-var">slot</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
+</span><span class="hs-identifier hs-var">SlotNo</span></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; SlotNo) -&gt; Word64 -&gt; SlotNo
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679142588"><span class="hs-identifier hs-var">slot</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Word64
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Word64
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679142589"><span class="hs-identifier hs-var">delta</span></a></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="hs-comment">-- | Find the protocol parameters.</span><span>
+</span><span id="line-66"></span><span id="local-6989586621679142585"><span id="local-6989586621679142586"><span class="annot"><a href="Mantra.Query.html#queryProtocol"><span class="hs-identifier hs-type">queryProtocol</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsShelleyBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679142586"><span class="hs-identifier hs-type">era</span></a></span><span>
+</span><span id="line-67"></span><span>              </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadFail</span></span><span> </span><span class="annot"><a href="#local-6989586621679142585"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-68"></span><span>              </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679142585"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-69"></span><span>              </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ShelleyBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679142586"><span class="hs-identifier hs-type">era</span></a></span><span>             </span><span class="hs-comment">-- ^ The era.</span><span>
+</span><span id="line-70"></span><span>              </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>                        </span><span class="hs-comment">-- ^ Path to the node's socket.</span><span>
+</span><span id="line-71"></span><span>              </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConsensusModeParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span> </span><span class="hs-comment">-- ^ The consensus mode.</span><span>
+</span><span id="line-72"></span><span>              </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span>                       </span><span class="hs-comment">-- ^ The network.</span><span>
+</span><span id="line-73"></span><span>              </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Types.html#MantraM"><span class="hs-identifier hs-type">MantraM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142585"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ProtocolParameters</span></span><span>    </span><span class="hs-comment">-- ^ Action to find the protocol parameters.</span></span></span><span>
+</span><span id="line-74"></span><span id="queryProtocol"><span class="annot"><span class="annottext">queryProtocol :: ShelleyBasedEra era
+-&gt; FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; MantraM m ProtocolParameters
+</span><a href="Mantra.Query.html#queryProtocol"><span class="hs-identifier hs-var hs-var">queryProtocol</span></a></span></span><span> </span><span id="local-6989586621679142584"><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><a href="#local-6989586621679142584"><span class="hs-identifier hs-var">sbe</span></a></span></span><span> </span><span id="local-6989586621679142583"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679142583"><span class="hs-identifier hs-var">socketPath</span></a></span></span><span> </span><span id="local-6989586621679142582"><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679142582"><span class="hs-identifier hs-var">mode</span></a></span></span><span> </span><span id="local-6989586621679142581"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679142581"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-75"></span><span>  </span><span class="hs-keyword">do</span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-keyword">let</span><span>
+</span><span id="line-77"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679142580"><span class="annot"><span class="annottext">EraInMode era CardanoMode
+</span><a href="#local-6989586621679142580"><span class="hs-identifier hs-var">eraInMode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CardanoEra era
+-&gt; ConsensusMode CardanoMode -&gt; Maybe (EraInMode era CardanoMode)
+forall era mode.
+CardanoEra era -&gt; ConsensusMode mode -&gt; Maybe (EraInMode era mode)
+</span><span class="hs-identifier hs-var">toEraInMode</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ShelleyBasedEra era -&gt; CardanoEra era
+forall era. ShelleyBasedEra era -&gt; CardanoEra era
+</span><span class="hs-identifier hs-var">shelleyBasedToCardanoEra</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><a href="#local-6989586621679142584"><span class="hs-identifier hs-var">sbe</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ConsensusMode CardanoMode
+</span><span class="hs-identifier hs-var">CardanoMode</span></span><span>
+</span><span id="line-78"></span><span>      </span><span id="local-6989586621679142579"><span class="annot"><span class="annottext">localNodeConnInfo :: LocalNodeConnectInfo CardanoMode
+</span><a href="#local-6989586621679142579"><span class="hs-identifier hs-var hs-var">localNodeConnInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+-&gt; NetworkId -&gt; FilePath -&gt; LocalNodeConnectInfo CardanoMode
+forall mode.
+ConsensusModeParams mode
+-&gt; NetworkId -&gt; FilePath -&gt; LocalNodeConnectInfo mode
+</span><span class="hs-identifier hs-var">LocalNodeConnectInfo</span></span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679142582"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679142581"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679142583"><span class="hs-identifier hs-var">socketPath</span></a></span><span>
+</span><span id="line-79"></span><span>    </span><span id="local-6989586621679142578"><span class="annot"><span class="annottext">Either EraMismatch ProtocolParameters
+</span><a href="#local-6989586621679142578"><span class="hs-identifier hs-var">pparams</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span>
+</span><span id="line-80"></span><span>      </span><span class="annot"><span class="annottext">IO (Either AcquireFailure (Either EraMismatch ProtocolParameters))
+-&gt; MantraM m (Either EraMismatch ProtocolParameters)
+forall (m :: * -&gt; *) e a.
+(MonadIO m, Show e) =&gt;
+IO (Either e a) -&gt; MantraM m a
+</span><a href="Mantra.Types.html#foistMantraEitherIO"><span class="hs-identifier hs-var">foistMantraEitherIO</span></a></span><span>
+</span><span id="line-81"></span><span>        </span><span class="annot"><span class="annottext">(IO (Either AcquireFailure (Either EraMismatch ProtocolParameters))
+ -&gt; MantraM m (Either EraMismatch ProtocolParameters))
+-&gt; (QueryInEra era ProtocolParameters
+    -&gt; IO
+         (Either AcquireFailure (Either EraMismatch ProtocolParameters)))
+-&gt; QueryInEra era ProtocolParameters
+-&gt; MantraM m (Either EraMismatch ProtocolParameters)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">LocalNodeConnectInfo CardanoMode
+-&gt; Maybe ChainPoint
+-&gt; QueryInMode CardanoMode (Either EraMismatch ProtocolParameters)
+-&gt; IO
+     (Either AcquireFailure (Either EraMismatch ProtocolParameters))
+forall mode result.
+LocalNodeConnectInfo mode
+-&gt; Maybe ChainPoint
+-&gt; QueryInMode mode result
+-&gt; IO (Either AcquireFailure result)
+</span><span class="hs-identifier hs-var">queryNodeLocalState</span></span><span> </span><span class="annot"><span class="annottext">LocalNodeConnectInfo CardanoMode
+</span><a href="#local-6989586621679142579"><span class="hs-identifier hs-var">localNodeConnInfo</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe ChainPoint
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-82"></span><span>        </span><span class="annot"><span class="annottext">(QueryInMode CardanoMode (Either EraMismatch ProtocolParameters)
+ -&gt; IO
+      (Either AcquireFailure (Either EraMismatch ProtocolParameters)))
+-&gt; (QueryInEra era ProtocolParameters
+    -&gt; QueryInMode CardanoMode (Either EraMismatch ProtocolParameters))
+-&gt; QueryInEra era ProtocolParameters
+-&gt; IO
+     (Either AcquireFailure (Either EraMismatch ProtocolParameters))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">EraInMode era CardanoMode
+-&gt; QueryInEra era ProtocolParameters
+-&gt; QueryInMode CardanoMode (Either EraMismatch ProtocolParameters)
+forall era mode result1.
+EraInMode era mode
+-&gt; QueryInEra era result1
+-&gt; QueryInMode mode (Either EraMismatch result1)
+</span><span class="hs-identifier hs-var">QueryInEra</span></span><span> </span><span class="annot"><span class="annottext">EraInMode era CardanoMode
+</span><a href="#local-6989586621679142580"><span class="hs-identifier hs-var">eraInMode</span></a></span><span>
+</span><span id="line-83"></span><span>        </span><span class="annot"><span class="annottext">(QueryInEra era ProtocolParameters
+ -&gt; MantraM m (Either EraMismatch ProtocolParameters))
+-&gt; QueryInEra era ProtocolParameters
+-&gt; MantraM m (Either EraMismatch ProtocolParameters)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+-&gt; QueryInShelleyBasedEra era ProtocolParameters
+-&gt; QueryInEra era ProtocolParameters
+forall era result.
+ShelleyBasedEra era
+-&gt; QueryInShelleyBasedEra era result -&gt; QueryInEra era result
+</span><span class="hs-identifier hs-var">QueryInShelleyBasedEra</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span> </span><span class="annot"><span class="annottext">QueryInShelleyBasedEra era ProtocolParameters
+forall era. QueryInShelleyBasedEra era ProtocolParameters
+</span><span class="hs-identifier hs-var">QueryProtocolParameters</span></span><span>
+</span><span id="line-84"></span><span>    </span><span class="annot"><span class="annottext">Either EraMismatch ProtocolParameters
+-&gt; MantraM m ProtocolParameters
+forall (m :: * -&gt; *) e a.
+(Monad m, Show e) =&gt;
+Either e a -&gt; MantraM m a
+</span><a href="Mantra.Types.html#foistMantraEither"><span class="hs-identifier hs-var">foistMantraEither</span></a></span><span> </span><span class="annot"><span class="annottext">Either EraMismatch ProtocolParameters
+</span><a href="#local-6989586621679142578"><span class="hs-identifier hs-var">pparams</span></a></span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span>
+</span><span id="line-87"></span><span class="hs-comment">-- | Find UTxOs at an address.</span><span>
+</span><span id="line-88"></span><span id="local-6989586621679142572"><span id="local-6989586621679142573"><span class="annot"><a href="Mantra.Query.html#queryUTxO"><span class="hs-identifier hs-type">queryUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCardanoEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679142573"><span class="hs-identifier hs-type">era</span></a></span><span>
+</span><span id="line-89"></span><span>          </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadFail</span></span><span> </span><span class="annot"><a href="#local-6989586621679142572"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-90"></span><span>          </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679142572"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-91"></span><span>          </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ShelleyBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679142573"><span class="hs-identifier hs-type">era</span></a></span><span>             </span><span class="hs-comment">-- ^ The era.</span><span>
+</span><span id="line-92"></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>                        </span><span class="hs-comment">-- ^ Path to the node's socket.</span><span>
+</span><span id="line-93"></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConsensusModeParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span> </span><span class="hs-comment">-- ^ The consensus mode.</span><span>
+</span><span id="line-94"></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressAny</span></span><span>                      </span><span class="hs-comment">-- ^ The address.</span><span>
+</span><span id="line-95"></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span>                       </span><span class="hs-comment">-- ^ The network.</span><span>
+</span><span id="line-96"></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Types.html#MantraM"><span class="hs-identifier hs-type">MantraM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142572"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span> </span><span class="annot"><a href="#local-6989586621679142573"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span>            </span><span class="hs-comment">-- ^ Action to find the UTxOs.</span></span></span><span>
+</span><span id="line-97"></span><span id="queryUTxO"><span class="annot"><span class="annottext">queryUTxO :: ShelleyBasedEra era
+-&gt; FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; AddressAny
+-&gt; NetworkId
+-&gt; MantraM m (UTxO era)
+</span><a href="Mantra.Query.html#queryUTxO"><span class="hs-identifier hs-var hs-var">queryUTxO</span></a></span></span><span> </span><span id="local-6989586621679142571"><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><a href="#local-6989586621679142571"><span class="hs-identifier hs-var">sbe</span></a></span></span><span> </span><span id="local-6989586621679142570"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679142570"><span class="hs-identifier hs-var">socketPath</span></a></span></span><span> </span><span id="local-6989586621679142569"><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679142569"><span class="hs-identifier hs-var">mode</span></a></span></span><span> </span><span id="local-6989586621679142568"><span class="annot"><span class="annottext">AddressAny
+</span><a href="#local-6989586621679142568"><span class="hs-identifier hs-var">address</span></a></span></span><span> </span><span id="local-6989586621679142567"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679142567"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-98"></span><span>  </span><span class="hs-keyword">do</span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-keyword">let</span><span>
+</span><span id="line-100"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679142566"><span class="annot"><span class="annottext">EraInMode era CardanoMode
+</span><a href="#local-6989586621679142566"><span class="hs-identifier hs-var">eraInMode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CardanoEra era
+-&gt; ConsensusMode CardanoMode -&gt; Maybe (EraInMode era CardanoMode)
+forall era mode.
+CardanoEra era -&gt; ConsensusMode mode -&gt; Maybe (EraInMode era mode)
+</span><span class="hs-identifier hs-var">toEraInMode</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ShelleyBasedEra era -&gt; CardanoEra era
+forall era. ShelleyBasedEra era -&gt; CardanoEra era
+</span><span class="hs-identifier hs-var">shelleyBasedToCardanoEra</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><a href="#local-6989586621679142571"><span class="hs-identifier hs-var">sbe</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ConsensusMode CardanoMode
+</span><span class="hs-identifier hs-var">CardanoMode</span></span><span>
+</span><span id="line-101"></span><span>      </span><span id="local-6989586621679142565"><span class="annot"><span class="annottext">localNodeConnInfo :: LocalNodeConnectInfo CardanoMode
+</span><a href="#local-6989586621679142565"><span class="hs-identifier hs-var hs-var">localNodeConnInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+-&gt; NetworkId -&gt; FilePath -&gt; LocalNodeConnectInfo CardanoMode
+forall mode.
+ConsensusModeParams mode
+-&gt; NetworkId -&gt; FilePath -&gt; LocalNodeConnectInfo mode
+</span><span class="hs-identifier hs-var">LocalNodeConnectInfo</span></span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679142569"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679142567"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679142570"><span class="hs-identifier hs-var">socketPath</span></a></span><span>
+</span><span id="line-102"></span><span>    </span><span id="local-6989586621679142564"><span class="annot"><span class="annottext">Either EraMismatch (UTxO era)
+</span><a href="#local-6989586621679142564"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span>
+</span><span id="line-103"></span><span>      </span><span class="annot"><span class="annottext">IO (Either AcquireFailure (Either EraMismatch (UTxO era)))
+-&gt; MantraM m (Either EraMismatch (UTxO era))
+forall (m :: * -&gt; *) e a.
+(MonadIO m, Show e) =&gt;
+IO (Either e a) -&gt; MantraM m a
+</span><a href="Mantra.Types.html#foistMantraEitherIO"><span class="hs-identifier hs-var">foistMantraEitherIO</span></a></span><span>
+</span><span id="line-104"></span><span>        </span><span class="annot"><span class="annottext">(IO (Either AcquireFailure (Either EraMismatch (UTxO era)))
+ -&gt; MantraM m (Either EraMismatch (UTxO era)))
+-&gt; (Set AddressAny
+    -&gt; IO (Either AcquireFailure (Either EraMismatch (UTxO era))))
+-&gt; Set AddressAny
+-&gt; MantraM m (Either EraMismatch (UTxO era))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">LocalNodeConnectInfo CardanoMode
+-&gt; Maybe ChainPoint
+-&gt; QueryInMode CardanoMode (Either EraMismatch (UTxO era))
+-&gt; IO (Either AcquireFailure (Either EraMismatch (UTxO era)))
+forall mode result.
+LocalNodeConnectInfo mode
+-&gt; Maybe ChainPoint
+-&gt; QueryInMode mode result
+-&gt; IO (Either AcquireFailure result)
+</span><span class="hs-identifier hs-var">queryNodeLocalState</span></span><span> </span><span class="annot"><span class="annottext">LocalNodeConnectInfo CardanoMode
+</span><a href="#local-6989586621679142565"><span class="hs-identifier hs-var">localNodeConnInfo</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe ChainPoint
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-105"></span><span>        </span><span class="annot"><span class="annottext">(QueryInMode CardanoMode (Either EraMismatch (UTxO era))
+ -&gt; IO (Either AcquireFailure (Either EraMismatch (UTxO era))))
+-&gt; (Set AddressAny
+    -&gt; QueryInMode CardanoMode (Either EraMismatch (UTxO era)))
+-&gt; Set AddressAny
+-&gt; IO (Either AcquireFailure (Either EraMismatch (UTxO era)))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">EraInMode era CardanoMode
+-&gt; QueryInEra era (UTxO era)
+-&gt; QueryInMode CardanoMode (Either EraMismatch (UTxO era))
+forall era mode result1.
+EraInMode era mode
+-&gt; QueryInEra era result1
+-&gt; QueryInMode mode (Either EraMismatch result1)
+</span><span class="hs-identifier hs-var">QueryInEra</span></span><span> </span><span class="annot"><span class="annottext">EraInMode era CardanoMode
+</span><a href="#local-6989586621679142566"><span class="hs-identifier hs-var">eraInMode</span></a></span><span>
+</span><span id="line-106"></span><span>        </span><span class="annot"><span class="annottext">(QueryInEra era (UTxO era)
+ -&gt; QueryInMode CardanoMode (Either EraMismatch (UTxO era)))
+-&gt; (Set AddressAny -&gt; QueryInEra era (UTxO era))
+-&gt; Set AddressAny
+-&gt; QueryInMode CardanoMode (Either EraMismatch (UTxO era))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+-&gt; QueryInShelleyBasedEra era (UTxO era)
+-&gt; QueryInEra era (UTxO era)
+forall era result.
+ShelleyBasedEra era
+-&gt; QueryInShelleyBasedEra era result -&gt; QueryInEra era result
+</span><span class="hs-identifier hs-var">QueryInShelleyBasedEra</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><a href="#local-6989586621679142571"><span class="hs-identifier hs-var">sbe</span></a></span><span>
+</span><span id="line-107"></span><span>        </span><span class="annot"><span class="annottext">(QueryInShelleyBasedEra era (UTxO era)
+ -&gt; QueryInEra era (UTxO era))
+-&gt; (Set AddressAny -&gt; QueryInShelleyBasedEra era (UTxO era))
+-&gt; Set AddressAny
+-&gt; QueryInEra era (UTxO era)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">QueryUTxOFilter -&gt; QueryInShelleyBasedEra era (UTxO era)
+forall era.
+QueryUTxOFilter -&gt; QueryInShelleyBasedEra era (UTxO era)
+</span><span class="hs-identifier hs-var">QueryUTxO</span></span><span>
+</span><span id="line-108"></span><span>        </span><span class="annot"><span class="annottext">(QueryUTxOFilter -&gt; QueryInShelleyBasedEra era (UTxO era))
+-&gt; (Set AddressAny -&gt; QueryUTxOFilter)
+-&gt; Set AddressAny
+-&gt; QueryInShelleyBasedEra era (UTxO era)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Set AddressAny -&gt; QueryUTxOFilter
+</span><span class="hs-identifier hs-var">QueryUTxOByAddress</span></span><span>
+</span><span id="line-109"></span><span>        </span><span class="annot"><span class="annottext">(Set AddressAny -&gt; MantraM m (Either EraMismatch (UTxO era)))
+-&gt; Set AddressAny -&gt; MantraM m (Either EraMismatch (UTxO era))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">AddressAny -&gt; Set AddressAny
+forall a. a -&gt; Set a
+</span><span class="hs-identifier hs-var">S.singleton</span></span><span> </span><span class="annot"><span class="annottext">AddressAny
+</span><a href="#local-6989586621679142568"><span class="hs-identifier hs-var">address</span></a></span><span>
+</span><span id="line-110"></span><span>    </span><span class="annot"><span class="annottext">Either EraMismatch (UTxO era) -&gt; MantraM m (UTxO era)
+forall (m :: * -&gt; *) e a.
+(Monad m, Show e) =&gt;
+Either e a -&gt; MantraM m a
+</span><a href="Mantra.Types.html#foistMantraEither"><span class="hs-identifier hs-var">foistMantraEither</span></a></span><span> </span><span class="annot"><span class="annottext">Either EraMismatch (UTxO era)
+</span><a href="#local-6989586621679142564"><span class="hs-identifier hs-var">utxo</span></a></span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span class="hs-comment">-- | Submit a transaction.</span><span>
+</span><span id="line-114"></span><span id="local-6989586621679142560"><span id="local-6989586621679142561"><span class="annot"><a href="Mantra.Query.html#submitTransaction"><span class="hs-identifier hs-type">submitTransaction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCardanoEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679142561"><span class="hs-identifier hs-type">era</span></a></span><span>
+</span><span id="line-115"></span><span>                  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679142560"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-116"></span><span>                  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ShelleyBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679142561"><span class="hs-identifier hs-type">era</span></a></span><span>                                            </span><span class="hs-comment">-- ^ The era.</span><span>
+</span><span id="line-117"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>                                                       </span><span class="hs-comment">-- ^ Path to the node's socket.</span><span>
+</span><span id="line-118"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConsensusModeParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span>                                </span><span class="hs-comment">-- ^ The consensus mode.</span><span>
+</span><span id="line-119"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span>                                                      </span><span class="hs-comment">-- ^ The network.</span><span>
+</span><span id="line-120"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679142561"><span class="hs-identifier hs-type">era</span></a></span><span>                                                         </span><span class="hs-comment">-- ^ The transaction.</span><span>
+</span><span id="line-121"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Types.html#MantraM"><span class="hs-identifier hs-type">MantraM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142560"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SubmitResult</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxValidationErrorInMode</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-comment">-- ^ Action to submit the transaction and return its result.</span></span></span><span>
+</span><span id="line-122"></span><span id="submitTransaction"><span class="annot"><span class="annottext">submitTransaction :: ShelleyBasedEra era
+-&gt; FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; Tx era
+-&gt; MantraM m (SubmitResult (TxValidationErrorInMode CardanoMode))
+</span><a href="Mantra.Query.html#submitTransaction"><span class="hs-identifier hs-var hs-var">submitTransaction</span></a></span></span><span> </span><span id="local-6989586621679142559"><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><a href="#local-6989586621679142559"><span class="hs-identifier hs-var">sbe</span></a></span></span><span> </span><span id="local-6989586621679142558"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679142558"><span class="hs-identifier hs-var">socketPath</span></a></span></span><span> </span><span id="local-6989586621679142557"><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679142557"><span class="hs-identifier hs-var">mode</span></a></span></span><span> </span><span id="local-6989586621679142556"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679142556"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span id="local-6989586621679142555"><span class="annot"><span class="annottext">Tx era
+</span><a href="#local-6989586621679142555"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-123"></span><span>  </span><span class="hs-keyword">do</span><span>
+</span><span id="line-124"></span><span>    </span><span class="hs-keyword">let</span><span>
+</span><span id="line-125"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679142554"><span class="annot"><span class="annottext">EraInMode era CardanoMode
+</span><a href="#local-6989586621679142554"><span class="hs-identifier hs-var">eraInMode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CardanoEra era
+-&gt; ConsensusMode CardanoMode -&gt; Maybe (EraInMode era CardanoMode)
+forall era mode.
+CardanoEra era -&gt; ConsensusMode mode -&gt; Maybe (EraInMode era mode)
+</span><span class="hs-identifier hs-var">toEraInMode</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ShelleyBasedEra era -&gt; CardanoEra era
+forall era. ShelleyBasedEra era -&gt; CardanoEra era
+</span><span class="hs-identifier hs-var">shelleyBasedToCardanoEra</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><a href="#local-6989586621679142559"><span class="hs-identifier hs-var">sbe</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ConsensusMode CardanoMode
+</span><span class="hs-identifier hs-var">CardanoMode</span></span><span>
+</span><span id="line-126"></span><span>      </span><span id="local-6989586621679142553"><span class="annot"><span class="annottext">localNodeConnInfo :: LocalNodeConnectInfo CardanoMode
+</span><a href="#local-6989586621679142553"><span class="hs-identifier hs-var hs-var">localNodeConnInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+-&gt; NetworkId -&gt; FilePath -&gt; LocalNodeConnectInfo CardanoMode
+forall mode.
+ConsensusModeParams mode
+-&gt; NetworkId -&gt; FilePath -&gt; LocalNodeConnectInfo mode
+</span><span class="hs-identifier hs-var">LocalNodeConnectInfo</span></span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679142557"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679142556"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679142558"><span class="hs-identifier hs-var">socketPath</span></a></span><span>
+</span><span id="line-127"></span><span>    </span><span class="annot"><span class="annottext">IO (SubmitResult (TxValidationErrorInMode CardanoMode))
+-&gt; MantraM m (SubmitResult (TxValidationErrorInMode CardanoMode))
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO (SubmitResult (TxValidationErrorInMode CardanoMode))
+ -&gt; MantraM m (SubmitResult (TxValidationErrorInMode CardanoMode)))
+-&gt; IO (SubmitResult (TxValidationErrorInMode CardanoMode))
+-&gt; MantraM m (SubmitResult (TxValidationErrorInMode CardanoMode))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">LocalNodeConnectInfo CardanoMode
+-&gt; TxInMode CardanoMode
+-&gt; IO (SubmitResult (TxValidationErrorInMode CardanoMode))
+forall mode.
+LocalNodeConnectInfo mode
+-&gt; TxInMode mode
+-&gt; IO (SubmitResult (TxValidationErrorInMode mode))
+</span><span class="hs-identifier hs-var">submitTxToNodeLocal</span></span><span> </span><span class="annot"><span class="annottext">LocalNodeConnectInfo CardanoMode
+</span><a href="#local-6989586621679142553"><span class="hs-identifier hs-var">localNodeConnInfo</span></a></span><span>
+</span><span id="line-128"></span><span>      </span><span class="annot"><span class="annottext">(TxInMode CardanoMode
+ -&gt; IO (SubmitResult (TxValidationErrorInMode CardanoMode)))
+-&gt; TxInMode CardanoMode
+-&gt; IO (SubmitResult (TxValidationErrorInMode CardanoMode))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Tx era -&gt; EraInMode era CardanoMode -&gt; TxInMode CardanoMode
+forall era mode. Tx era -&gt; EraInMode era mode -&gt; TxInMode mode
+</span><span class="hs-identifier hs-var">TxInMode</span></span><span> </span><span class="annot"><span class="annottext">Tx era
+</span><a href="#local-6989586621679142555"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">EraInMode era CardanoMode
+</span><a href="#local-6989586621679142554"><span class="hs-identifier hs-var">eraInMode</span></a></span><span>
+</span><span id="line-129"></span></pre></body></html>

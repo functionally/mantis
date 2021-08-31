@@ -1,0 +1,902 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-----------------------------------------------------------------------------</span><span>
+</span><span id="line-2"></span><span class="hs-comment">--</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Module      :  $Headers</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Copyright   :  (c) 2021 Brian W Bush</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- License     :  MIT</span><span>
+</span><span id="line-6"></span><span class="hs-comment">--</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Maintainer  :  Brian W Bush &lt;code@functionally.io&gt;</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Stability   :  Experimental</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Portability :  Portable</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- | Watching activity on the blockchain.</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-----------------------------------------------------------------------------</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-pragma">{-# LANGUAGE GADTs               #-}</span><span>
+</span><span id="line-17"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes          #-}</span><span>
+</span><span id="line-18"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Mantra.Chain</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-22"></span><span class="annot"><span class="hs-comment">-- * Handlers</span></span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><a href="Mantra.Chain.html#Processor"><span class="hs-identifier">Processor</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Chain.html#Reverter"><span class="hs-identifier">Reverter</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Chain.html#IdleNotifier"><span class="hs-identifier">IdleNotifier</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Chain.html#ScriptHandler"><span class="hs-identifier">ScriptHandler</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Chain.html#TxInHandler"><span class="hs-identifier">TxInHandler</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Chain.html#TxOutHandler"><span class="hs-identifier">TxOutHandler</span></a></span><span>
+</span><span id="line-29"></span><span class="annot"><span class="hs-comment">-- * Activity</span></span><span>
+</span><span id="line-30"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Chain.html#walkBlocks"><span class="hs-identifier">walkBlocks</span></a></span><span>
+</span><span id="line-31"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Chain.html#extractScripts"><span class="hs-identifier">extractScripts</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Mantra.Chain.html#watchTransactions"><span class="hs-identifier">watchTransactions</span></a></span><span>
+</span><span id="line-33"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Block</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">BlockHeader</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">BlockInMode</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">CardanoMode</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ChainPoint</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ChainTip</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ConsensusModeParams</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">EraInMode</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">IsCardanoEra</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">LocalNodeClientProtocols</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">LocalChainSyncClient</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">LocalNodeConnectInfo</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">NetworkId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ScriptHash</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ShelleyBasedEra</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SimpleScript</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SimpleScriptV2</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TxBody</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TxBodyContent</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TxId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TxIn</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TxIx</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TxOut</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">connectToLocalNode</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getTxBody</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getTxId</span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.ChainSync.Client</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ChainSyncClient</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ClientStIdle</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ClientStNext</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.Shelley</span></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TxBody</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ShelleyTxBody</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Extra</span></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">whenJust</span></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span>       </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MonadIO</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">liftIO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span>                   </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">catMaybes</span></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Mantra.Chain.Internal.html"><span class="hs-identifier">Mantra.Chain.Internal</span></a></span><span>        </span><span class="hs-special">(</span><span class="annot"><a href="Mantra.Chain.Internal.html#interpretAsScript"><span class="hs-identifier">interpretAsScript</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Mantra.Types.html"><span class="hs-identifier">Mantra.Types</span></a></span><span>                 </span><span class="hs-special">(</span><span class="annot"><a href="Mantra.Types.html#MantraM"><span class="hs-identifier">MantraM</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Crypto</span></span><span>              </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>       </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">StandardCrypto</span></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Alonzo.Scripts</span></span><span>      </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">LedgerAlonzo</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Script</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.ShelleyMA.Timelocks</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">ShelleyMA</span></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Timelock</span></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="hs-comment">-- | Process a block.</span><span>
+</span><span id="line-51"></span><span class="hs-keyword">type</span><span> </span><span id="Processor"><span class="annot"><a href="Mantra.Chain.html#Processor"><span class="hs-identifier hs-var">Processor</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>  </span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span> </span><span class="hs-comment">-- ^ The block.</span><span>
+</span><span id="line-52"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainTip</span></span><span>                </span><span class="hs-comment">-- ^ The chain tip.</span><span>
+</span><span id="line-53"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>                   </span><span class="hs-comment">-- ^ Action to process activity.</span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="hs-comment">-- | Handle a rollback.</span><span>
+</span><span id="line-57"></span><span class="hs-keyword">type</span><span> </span><span id="Reverter"><span class="annot"><a href="Mantra.Chain.html#Reverter"><span class="hs-identifier hs-var">Reverter</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ChainPoint</span></span><span> </span><span class="hs-comment">-- ^ The new chain point.</span><span>
+</span><span id="line-58"></span><span>              </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainTip</span></span><span>   </span><span class="hs-comment">-- ^ The chain tip.</span><span>
+</span><span id="line-59"></span><span>              </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>      </span><span class="hs-comment">-- ^ Action to handle the rollback.</span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- | Peform action when idle.</span><span>
+</span><span id="line-63"></span><span class="hs-keyword">type</span><span> </span><span id="IdleNotifier"><span class="annot"><a href="Mantra.Chain.html#IdleNotifier"><span class="hs-identifier hs-var">IdleNotifier</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-comment">-- ^ Action that returns whether processing should terminate.</span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="hs-comment">-- | Process activity on the blockchain.</span><span>
+</span><span id="line-67"></span><span id="local-6989586621679142890"><span class="annot"><a href="Mantra.Chain.html#walkBlocks"><span class="hs-identifier hs-type">walkBlocks</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679142890"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-68"></span><span>           </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>                        </span><span class="hs-comment">-- ^ The path to the node's socket.</span><span>
+</span><span id="line-69"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConsensusModeParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span> </span><span class="hs-comment">-- ^ The consensus mode.</span><span>
+</span><span id="line-70"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span>                       </span><span class="hs-comment">-- ^ The network.</span><span>
+</span><span id="line-71"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Chain.html#IdleNotifier"><span class="hs-identifier hs-type">IdleNotifier</span></a></span><span>                    </span><span class="hs-comment">-- ^ Handle idleness.</span><span>
+</span><span id="line-72"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Mantra.Chain.html#Reverter"><span class="hs-identifier hs-type">Reverter</span></a></span><span>                  </span><span class="hs-comment">-- ^ Handle rollbacks.</span><span>
+</span><span id="line-73"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Chain.html#Processor"><span class="hs-identifier hs-type">Processor</span></a></span><span>                       </span><span class="hs-comment">-- ^ Handle blocks.</span><span>
+</span><span id="line-74"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Types.html#MantraM"><span class="hs-identifier hs-type">MantraM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142890"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>                    </span><span class="hs-comment">-- ^ Action to walk the blockchain.</span></span><span>
+</span><span id="line-75"></span><span id="walkBlocks"><span class="annot"><span class="annottext">walkBlocks :: FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; IdleNotifier
+-&gt; Maybe Reverter
+-&gt; Processor
+-&gt; MantraM m ()
+</span><a href="Mantra.Chain.html#walkBlocks"><span class="hs-identifier hs-var hs-var">walkBlocks</span></a></span></span><span> </span><span id="local-6989586621679142816"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679142816"><span class="hs-identifier hs-var">socketPath</span></a></span></span><span> </span><span id="local-6989586621679142815"><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679142815"><span class="hs-identifier hs-var">mode</span></a></span></span><span> </span><span id="local-6989586621679142814"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679142814"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span id="local-6989586621679142813"><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679142813"><span class="hs-identifier hs-var">notifyIdle</span></a></span></span><span> </span><span id="local-6989586621679142812"><span class="annot"><span class="annottext">Maybe Reverter
+</span><a href="#local-6989586621679142812"><span class="hs-identifier hs-var">revertPoint</span></a></span></span><span> </span><span id="local-6989586621679142811"><span class="annot"><span class="annottext">Processor
+</span><a href="#local-6989586621679142811"><span class="hs-identifier hs-var">processBlock</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-76"></span><span>  </span><span class="hs-keyword">let</span><span>
+</span><span id="line-77"></span><span>    </span><span id="local-6989586621679142810"><span class="annot"><span class="annottext">localNodeConnInfo :: LocalNodeConnectInfo CardanoMode
+</span><a href="#local-6989586621679142810"><span class="hs-identifier hs-var hs-var">localNodeConnInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+-&gt; NetworkId -&gt; FilePath -&gt; LocalNodeConnectInfo CardanoMode
+forall mode.
+ConsensusModeParams mode
+-&gt; NetworkId -&gt; FilePath -&gt; LocalNodeConnectInfo mode
+</span><span class="hs-identifier hs-var">LocalNodeConnectInfo</span></span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679142815"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679142814"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679142816"><span class="hs-identifier hs-var">socketPath</span></a></span><span>
+</span><span id="line-78"></span><span>    </span><span id="local-6989586621679142808"><span class="annot"><span class="annottext">protocols :: LocalNodeClientProtocols
+  (BlockInMode CardanoMode)
+  ChainPoint
+  ChainTip
+  (TxInMode CardanoMode)
+  (TxValidationErrorInMode CardanoMode)
+  (QueryInMode CardanoMode)
+  IO
+</span><a href="#local-6989586621679142808"><span class="hs-identifier hs-var hs-var">protocols</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-79"></span><span>      </span><span class="annot"><span class="annottext">LocalNodeClientProtocols :: forall block point tip tx txerr (query :: * -&gt; *) (m :: * -&gt; *).
+LocalChainSyncClient block point tip m
+-&gt; Maybe (LocalTxSubmissionClient tx txerr m ())
+-&gt; Maybe (LocalStateQueryClient block point query m ())
+-&gt; LocalNodeClientProtocols block point tip tx txerr query m
+</span><span class="hs-identifier hs-type">LocalNodeClientProtocols</span></span><span>
+</span><span id="line-80"></span><span>      </span><span class="hs-special">{</span><span>
+</span><span id="line-81"></span><span>        </span><span class="annot"><span class="annottext">localChainSyncClient :: LocalChainSyncClient
+  (BlockInMode CardanoMode) ChainPoint ChainTip IO
+</span><span class="hs-identifier hs-var">localChainSyncClient</span></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainSyncClient (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+-&gt; LocalChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO
+forall block point tip (m :: * -&gt; *).
+ChainSyncClient block point tip m ()
+-&gt; LocalChainSyncClient block point tip m
+</span><span class="hs-identifier hs-var">LocalChainSyncClient</span></span><span> </span><span class="annot"><span class="annottext">(ChainSyncClient
+   (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+ -&gt; LocalChainSyncClient
+      (BlockInMode CardanoMode) ChainPoint ChainTip IO)
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+-&gt; LocalChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IdleNotifier
+-&gt; Maybe Reverter
+-&gt; Processor
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+</span><a href="Mantra.Chain.html#client"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679142813"><span class="hs-identifier hs-var">notifyIdle</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Reverter
+</span><a href="#local-6989586621679142812"><span class="hs-identifier hs-var">revertPoint</span></a></span><span> </span><span class="annot"><span class="annottext">Processor
+</span><a href="#local-6989586621679142811"><span class="hs-identifier hs-var">processBlock</span></a></span><span>
+</span><span id="line-82"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">localTxSubmissionClient :: Maybe
+  (LocalTxSubmissionClient
+     (TxInMode CardanoMode) (TxValidationErrorInMode CardanoMode) IO ())
+</span><span class="hs-identifier hs-var">localTxSubmissionClient</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe
+  (LocalTxSubmissionClient
+     (TxInMode CardanoMode) (TxValidationErrorInMode CardanoMode) IO ())
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-83"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">localStateQueryClient :: Maybe
+  (LocalStateQueryClient
+     (BlockInMode CardanoMode)
+     ChainPoint
+     (QueryInMode CardanoMode)
+     IO
+     ())
+</span><span class="hs-identifier hs-var">localStateQueryClient</span></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe
+  (LocalStateQueryClient
+     (BlockInMode CardanoMode)
+     ChainPoint
+     (QueryInMode CardanoMode)
+     IO
+     ())
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-84"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-85"></span><span>  </span><span class="hs-keyword">in</span><span>
+</span><span id="line-86"></span><span>    </span><span class="annot"><span class="annottext">IO () -&gt; MantraM m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span>
+</span><span id="line-87"></span><span>      </span><span class="annot"><span class="annottext">(IO () -&gt; MantraM m ()) -&gt; IO () -&gt; MantraM m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">LocalNodeConnectInfo CardanoMode
+-&gt; LocalNodeClientProtocols
+     (BlockInMode CardanoMode)
+     ChainPoint
+     ChainTip
+     (TxInMode CardanoMode)
+     (TxValidationErrorInMode CardanoMode)
+     (QueryInMode CardanoMode)
+     IO
+-&gt; IO ()
+forall mode.
+LocalNodeConnectInfo mode
+-&gt; LocalNodeClientProtocolsInMode mode -&gt; IO ()
+</span><span class="hs-identifier hs-var">connectToLocalNode</span></span><span> </span><span class="annot"><span class="annottext">LocalNodeConnectInfo CardanoMode
+</span><a href="#local-6989586621679142810"><span class="hs-identifier hs-var">localNodeConnInfo</span></a></span><span> </span><span class="annot"><span class="annottext">LocalNodeClientProtocols
+  (BlockInMode CardanoMode)
+  ChainPoint
+  ChainTip
+  (TxInMode CardanoMode)
+  (TxValidationErrorInMode CardanoMode)
+  (QueryInMode CardanoMode)
+  IO
+</span><a href="#local-6989586621679142808"><span class="hs-identifier hs-var">protocols</span></a></span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span class="hs-comment">-- | Chain synchronization client.</span><span>
+</span><span id="line-91"></span><span class="annot"><a href="Mantra.Chain.html#client"><span class="hs-identifier hs-type">client</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Mantra.Chain.html#IdleNotifier"><span class="hs-identifier hs-type">IdleNotifier</span></a></span><span>                                                        </span><span class="hs-comment">-- ^ Handle idleness.</span><span>
+</span><span id="line-92"></span><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Mantra.Chain.html#Reverter"><span class="hs-identifier hs-type">Reverter</span></a></span><span>                                                      </span><span class="hs-comment">-- ^ Handle rollbacks.</span><span>
+</span><span id="line-93"></span><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Chain.html#Processor"><span class="hs-identifier hs-type">Processor</span></a></span><span>                                                           </span><span class="hs-comment">-- ^ Handle blocks.</span><span>
+</span><span id="line-94"></span><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainSyncClient</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainPoint</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainTip</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-comment">-- ^ The chain synchronization client.</span><span>
+</span><span id="line-95"></span><span id="client"><span class="annot"><span class="annottext">client :: IdleNotifier
+-&gt; Maybe Reverter
+-&gt; Processor
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+</span><a href="Mantra.Chain.html#client"><span class="hs-identifier hs-var hs-var">client</span></a></span></span><span> </span><span id="local-6989586621679142801"><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679142801"><span class="hs-identifier hs-var">notifyIdle</span></a></span></span><span> </span><span id="local-6989586621679142800"><span class="annot"><span class="annottext">Maybe Reverter
+</span><a href="#local-6989586621679142800"><span class="hs-identifier hs-var">revertPoint</span></a></span></span><span> </span><span id="local-6989586621679142799"><span class="annot"><span class="annottext">Processor
+</span><a href="#local-6989586621679142799"><span class="hs-identifier hs-var">processBlock</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-96"></span><span>  </span><span class="annot"><span class="annottext">IO
+  (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+forall header point tip (m :: * -&gt; *) a.
+m (ClientStIdle header point tip m a)
+-&gt; ChainSyncClient header point tip m a
+</span><span class="hs-identifier hs-var">ChainSyncClient</span></span><span>
+</span><span id="line-97"></span><span>    </span><span class="annot"><span class="annottext">(IO
+   (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+ -&gt; ChainSyncClient
+      (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">let</span><span>
+</span><span id="line-98"></span><span>        </span><span id="local-6989586621679142797"><span class="annot"><span class="annottext">clientStIdle :: IO
+  (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+</span><a href="#local-6989586621679142797"><span class="hs-identifier hs-var hs-var">clientStIdle</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-99"></span><span>          </span><span class="annot"><span class="annottext">ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span>
+</span><span id="line-100"></span><span>            </span><span class="annot"><span class="annottext">(ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+ -&gt; IO
+      (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ()))
+-&gt; (IO
+      (ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+    -&gt; ClientStIdle
+         (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+-&gt; IO
+     (ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+forall header point tip (m :: * -&gt; *) a.
+ClientStNext header point tip m a
+-&gt; m (ClientStNext header point tip m a)
+-&gt; ClientStIdle header point tip m a
+</span><span class="hs-identifier hs-var">SendMsgRequestNext</span></span><span> </span><span class="annot"><span class="annottext">ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+</span><a href="#local-6989586621679142794"><span class="hs-identifier hs-var">clientStNext</span></a></span><span>
+</span><span id="line-101"></span><span>            </span><span class="annot"><span class="annottext">(IO
+   (ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+ -&gt; IO
+      (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ()))
+-&gt; IO
+     (ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-102"></span><span>              </span><span id="local-6989586621679142793"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679142793"><span class="hs-identifier hs-var">terminate</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679142801"><span class="hs-identifier hs-var">notifyIdle</span></a></span><span>
+</span><span id="line-103"></span><span>              </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679142793"><span class="hs-identifier hs-var">terminate</span></a></span><span>
+</span><span id="line-104"></span><span>                </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">IO
+  (ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+forall header point tip. IO (ClientStNext header point tip IO ())
+</span><a href="#local-6989586621679142792"><span class="hs-identifier hs-var">clientDone</span></a></span><span>
+</span><span id="line-105"></span><span>                </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+-&gt; IO
+     (ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+</span><a href="#local-6989586621679142794"><span class="hs-identifier hs-var">clientStNext</span></a></span><span>
+</span><span id="line-106"></span><span>        </span><span id="local-6989586621679142794"><span class="annot"><span class="annottext">clientStNext :: ClientStNext (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+</span><a href="#local-6989586621679142794"><span class="hs-identifier hs-var hs-var">clientStNext</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-107"></span><span>          </span><span class="annot"><span class="annottext">ClientStNext :: forall header point tip (m :: * -&gt; *) a.
+(header -&gt; tip -&gt; ChainSyncClient header point tip m a)
+-&gt; (point -&gt; tip -&gt; ChainSyncClient header point tip m a)
+-&gt; ClientStNext header point tip m a
+</span><span class="hs-identifier hs-type">ClientStNext</span></span><span>
+</span><span id="line-108"></span><span>          </span><span class="hs-special">{</span><span>
+</span><span id="line-109"></span><span>            </span><span class="annot"><span class="annottext">recvMsgRollForward :: BlockInMode CardanoMode
+-&gt; ChainTip
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+</span><span class="hs-identifier hs-var">recvMsgRollForward</span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679142789"><span class="annot"><span class="annottext">BlockInMode CardanoMode
+</span><a href="#local-6989586621679142789"><span class="hs-identifier hs-var">block</span></a></span></span><span> </span><span id="local-6989586621679142788"><span class="annot"><span class="annottext">ChainTip
+</span><a href="#local-6989586621679142788"><span class="hs-identifier hs-var">tip</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO
+  (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+forall header point tip (m :: * -&gt; *) a.
+m (ClientStIdle header point tip m a)
+-&gt; ChainSyncClient header point tip m a
+</span><span class="hs-identifier hs-var">ChainSyncClient</span></span><span> </span><span class="annot"><span class="annottext">(IO
+   (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+ -&gt; ChainSyncClient
+      (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Processor
+</span><a href="#local-6989586621679142799"><span class="hs-identifier hs-var">processBlock</span></a></span><span> </span><span class="annot"><span class="annottext">BlockInMode CardanoMode
+</span><a href="#local-6989586621679142789"><span class="hs-identifier hs-var">block</span></a></span><span> </span><span class="annot"><span class="annottext">ChainTip
+</span><a href="#local-6989586621679142788"><span class="hs-identifier hs-var">tip</span></a></span><span>
+</span><span id="line-110"></span><span>                                                                </span><span class="annot"><span class="annottext">IO ()
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO
+  (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+</span><a href="#local-6989586621679142797"><span class="hs-identifier hs-var">clientStIdle</span></a></span><span>
+</span><span id="line-111"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">recvMsgRollBackward :: ChainPoint
+-&gt; ChainTip
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+</span><span class="hs-identifier hs-var">recvMsgRollBackward</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679142786"><span class="annot"><span class="annottext">ChainPoint
+</span><a href="#local-6989586621679142786"><span class="hs-identifier hs-var">point</span></a></span></span><span> </span><span id="local-6989586621679142785"><span class="annot"><span class="annottext">ChainTip
+</span><a href="#local-6989586621679142785"><span class="hs-identifier hs-var">tip</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO
+  (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+forall header point tip (m :: * -&gt; *) a.
+m (ClientStIdle header point tip m a)
+-&gt; ChainSyncClient header point tip m a
+</span><span class="hs-identifier hs-var">ChainSyncClient</span></span><span> </span><span class="annot"><span class="annottext">(IO
+   (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+ -&gt; ChainSyncClient
+      (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; ChainSyncClient
+     (BlockInMode CardanoMode) ChainPoint ChainTip IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Maybe Reverter -&gt; (Reverter -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a.
+Applicative m =&gt;
+Maybe a -&gt; (a -&gt; m ()) -&gt; m ()
+</span><span class="hs-identifier hs-var">whenJust</span></span><span> </span><span class="annot"><span class="annottext">Maybe Reverter
+</span><a href="#local-6989586621679142800"><span class="hs-identifier hs-var">revertPoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679142784"><span class="annot"><span class="annottext">Reverter
+</span><a href="#local-6989586621679142784"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Reverter
+</span><a href="#local-6989586621679142784"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">ChainPoint
+</span><a href="#local-6989586621679142786"><span class="hs-identifier hs-var">point</span></a></span><span> </span><span class="annot"><span class="annottext">ChainTip
+</span><a href="#local-6989586621679142785"><span class="hs-identifier hs-var">tip</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-112"></span><span>                                                                </span><span class="annot"><span class="annottext">IO ()
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+-&gt; IO
+     (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO
+  (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+</span><a href="#local-6989586621679142797"><span class="hs-identifier hs-var">clientStIdle</span></a></span><span>
+</span><span id="line-113"></span><span>          </span><span class="hs-special">}</span><span>
+</span><span id="line-114"></span><span>        </span><span id="local-6989586621679142792"><span class="annot"><span class="annottext">clientDone :: IO (ClientStNext header point tip IO ())
+</span><a href="#local-6989586621679142792"><span class="hs-identifier hs-var hs-var">clientDone</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-115"></span><span>          </span><span class="annot"><span class="annottext">ClientStNext header point tip IO ()
+-&gt; IO (ClientStNext header point tip IO ())
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span>
+</span><span id="line-116"></span><span>            </span><span class="annot"><span class="annottext">(ClientStNext header point tip IO ()
+ -&gt; IO (ClientStNext header point tip IO ()))
+-&gt; ClientStNext header point tip IO ()
+-&gt; IO (ClientStNext header point tip IO ())
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ClientStNext :: forall header point tip (m :: * -&gt; *) a.
+(header -&gt; tip -&gt; ChainSyncClient header point tip m a)
+-&gt; (point -&gt; tip -&gt; ChainSyncClient header point tip m a)
+-&gt; ClientStNext header point tip m a
+</span><span class="hs-identifier hs-type">ClientStNext</span></span><span>
+</span><span id="line-117"></span><span>              </span><span class="hs-special">{</span><span>
+</span><span id="line-118"></span><span>                </span><span class="annot"><span class="annottext">recvMsgRollForward :: header -&gt; tip -&gt; ChainSyncClient header point tip IO ()
+</span><span class="hs-identifier hs-var">recvMsgRollForward</span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">header
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">tip
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO (ClientStIdle header point tip IO ())
+-&gt; ChainSyncClient header point tip IO ()
+forall header point tip (m :: * -&gt; *) a.
+m (ClientStIdle header point tip m a)
+-&gt; ChainSyncClient header point tip m a
+</span><span class="hs-identifier hs-var">ChainSyncClient</span></span><span> </span><span class="annot"><span class="annottext">(IO (ClientStIdle header point tip IO ())
+ -&gt; ChainSyncClient header point tip IO ())
+-&gt; (ClientStIdle header point tip IO ()
+    -&gt; IO (ClientStIdle header point tip IO ()))
+-&gt; ClientStIdle header point tip IO ()
+-&gt; ChainSyncClient header point tip IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ClientStIdle header point tip IO ()
+-&gt; IO (ClientStIdle header point tip IO ())
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(ClientStIdle header point tip IO ()
+ -&gt; ChainSyncClient header point tip IO ())
+-&gt; ClientStIdle header point tip IO ()
+-&gt; ChainSyncClient header point tip IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; ClientStIdle header point tip IO ()
+forall a header point tip (m :: * -&gt; *).
+a -&gt; ClientStIdle header point tip m a
+</span><span class="hs-identifier hs-var">SendMsgDone</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span>              </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">recvMsgRollBackward :: point -&gt; tip -&gt; ChainSyncClient header point tip IO ()
+</span><span class="hs-identifier hs-var">recvMsgRollBackward</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">point
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">tip
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO (ClientStIdle header point tip IO ())
+-&gt; ChainSyncClient header point tip IO ()
+forall header point tip (m :: * -&gt; *) a.
+m (ClientStIdle header point tip m a)
+-&gt; ChainSyncClient header point tip m a
+</span><span class="hs-identifier hs-var">ChainSyncClient</span></span><span> </span><span class="annot"><span class="annottext">(IO (ClientStIdle header point tip IO ())
+ -&gt; ChainSyncClient header point tip IO ())
+-&gt; (ClientStIdle header point tip IO ()
+    -&gt; IO (ClientStIdle header point tip IO ()))
+-&gt; ClientStIdle header point tip IO ()
+-&gt; ChainSyncClient header point tip IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ClientStIdle header point tip IO ()
+-&gt; IO (ClientStIdle header point tip IO ())
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(ClientStIdle header point tip IO ()
+ -&gt; ChainSyncClient header point tip IO ())
+-&gt; ClientStIdle header point tip IO ()
+-&gt; ChainSyncClient header point tip IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; ClientStIdle header point tip IO ()
+forall a header point tip (m :: * -&gt; *).
+a -&gt; ClientStIdle header point tip m a
+</span><span class="hs-identifier hs-var">SendMsgDone</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-120"></span><span>              </span><span class="hs-special">}</span><span>
+</span><span id="line-121"></span><span>     </span><span class="hs-keyword">in</span><span>
+</span><span id="line-122"></span><span>      </span><span class="annot"><span class="annottext">IO
+  (ClientStIdle (BlockInMode CardanoMode) ChainPoint ChainTip IO ())
+</span><a href="#local-6989586621679142797"><span class="hs-identifier hs-var">clientStIdle</span></a></span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span>
+</span><span id="line-125"></span><span class="hs-comment">-- | Process a script.</span><span>
+</span><span id="line-126"></span><span class="hs-keyword">type</span><span> </span><span id="ScriptHandler"><span class="annot"><a href="Mantra.Chain.html#ScriptHandler"><span class="hs-identifier hs-var">ScriptHandler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>  </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span>                 </span><span class="hs-comment">-- ^ The block header.</span><span>
+</span><span id="line-127"></span><span>                   </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxId</span></span><span>                        </span><span class="hs-comment">-- ^ The transaction identifier.</span><span>
+</span><span id="line-128"></span><span>                   </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptHash</span></span><span>                  </span><span class="hs-comment">-- ^ The script's hash.</span><span>
+</span><span id="line-129"></span><span>                   </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleScript</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleScriptV2</span></span><span> </span><span class="hs-comment">-- ^ The script.</span><span>
+</span><span id="line-130"></span><span>                   </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>                       </span><span class="hs-comment">-- ^ Action to process the script.</span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span>
+</span><span id="line-133"></span><span class="hs-comment">-- | Extract scripts from the blockchain.</span><span>
+</span><span id="line-134"></span><span id="local-6989586621679142782"><span class="annot"><a href="Mantra.Chain.html#extractScripts"><span class="hs-identifier hs-type">extractScripts</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679142782"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-135"></span><span>               </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>                        </span><span class="hs-comment">-- ^ Path to the node's socket.</span><span>
+</span><span id="line-136"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConsensusModeParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span> </span><span class="hs-comment">-- ^ Consensus mode.</span><span>
+</span><span id="line-137"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span>                       </span><span class="hs-comment">-- ^ The network.</span><span>
+</span><span id="line-138"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Chain.html#IdleNotifier"><span class="hs-identifier hs-type">IdleNotifier</span></a></span><span>                    </span><span class="hs-comment">-- ^ Handle idleness.</span><span>
+</span><span id="line-139"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Chain.html#ScriptHandler"><span class="hs-identifier hs-type">ScriptHandler</span></a></span><span>                   </span><span class="hs-comment">-- ^ Handle a script.</span><span>
+</span><span id="line-140"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Types.html#MantraM"><span class="hs-identifier hs-type">MantraM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142782"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>                    </span><span class="hs-comment">-- ^ Action to extract scripts.</span></span><span>
+</span><span id="line-141"></span><span id="extractScripts"><span class="annot"><span class="annottext">extractScripts :: FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; IdleNotifier
+-&gt; ScriptHandler
+-&gt; MantraM m ()
+</span><a href="Mantra.Chain.html#extractScripts"><span class="hs-identifier hs-var hs-var">extractScripts</span></a></span></span><span> </span><span id="local-6989586621679142781"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679142781"><span class="hs-identifier hs-var">socketPath</span></a></span></span><span> </span><span id="local-6989586621679142780"><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679142780"><span class="hs-identifier hs-var">mode</span></a></span></span><span> </span><span id="local-6989586621679142779"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679142779"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span id="local-6989586621679142778"><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679142778"><span class="hs-identifier hs-var">notifyIdle</span></a></span></span><span> </span><span id="local-6989586621679142777"><span class="annot"><span class="annottext">ScriptHandler
+</span><a href="#local-6989586621679142777"><span class="hs-identifier hs-var">handler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-142"></span><span>  </span><span class="annot"><span class="annottext">FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; IdleNotifier
+-&gt; Maybe Reverter
+-&gt; Processor
+-&gt; MantraM m ()
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; IdleNotifier
+-&gt; Maybe Reverter
+-&gt; Processor
+-&gt; MantraM m ()
+</span><a href="Mantra.Chain.html#walkBlocks"><span class="hs-identifier hs-var">walkBlocks</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679142781"><span class="hs-identifier hs-var">socketPath</span></a></span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679142780"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679142779"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679142778"><span class="hs-identifier hs-var">notifyIdle</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Reverter
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-143"></span><span>    </span><span class="annot"><span class="annottext">(Processor -&gt; MantraM m ()) -&gt; Processor -&gt; MantraM m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ScriptHandler -&gt; Processor
+</span><a href="Mantra.Chain.html#processScripts"><span class="hs-identifier hs-var">processScripts</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptHandler
+</span><a href="#local-6989586621679142777"><span class="hs-identifier hs-var">handler</span></a></span><span>
+</span><span id="line-144"></span><span>
+</span><span id="line-145"></span><span>
+</span><span id="line-146"></span><span class="hs-comment">-- | Process scripts.</span><span>
+</span><span id="line-147"></span><span class="annot"><a href="Mantra.Chain.html#processScripts"><span class="hs-identifier hs-type">processScripts</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Mantra.Chain.html#ScriptHandler"><span class="hs-identifier hs-type">ScriptHandler</span></a></span><span>           </span><span class="hs-comment">-- ^ Handle a script.</span><span>
+</span><span id="line-148"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span> </span><span class="hs-comment">-- ^ The block.</span><span>
+</span><span id="line-149"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainTip</span></span><span>                </span><span class="hs-comment">-- ^ The chain tip.</span><span>
+</span><span id="line-150"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>                   </span><span class="hs-comment">-- ^ Action to process script.</span><span>
+</span><span id="line-151"></span><span id="processScripts"><span class="annot"><span class="annottext">processScripts :: ScriptHandler -&gt; Processor
+</span><a href="Mantra.Chain.html#processScripts"><span class="hs-identifier hs-var hs-var">processScripts</span></a></span></span><span> </span><span id="local-6989586621679142775"><span class="annot"><span class="annottext">ScriptHandler
+</span><a href="#local-6989586621679142775"><span class="hs-identifier hs-var">handler</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Block</span></span><span> </span><span id="local-6989586621679142772"><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621679142772"><span class="hs-identifier hs-var">header</span></a></span></span><span> </span><span id="local-6989586621679142771"><span class="annot"><span class="annottext">[Tx era]
+</span><a href="#local-6989586621679142771"><span class="hs-identifier hs-var">txs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">EraInMode era CardanoMode
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ChainTip
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-152"></span><span>  </span><span class="annot"><span class="annottext">[IO ()] -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a.
+(Foldable t, Monad m) =&gt;
+t (m a) -&gt; m ()
+</span><span class="hs-identifier hs-var">sequence_</span></span><span>
+</span><span id="line-153"></span><span>    </span><span class="hs-special">[</span><span>
+</span><span id="line-154"></span><span>      </span><span class="annot"><span class="annottext">Maybe (SimpleScript SimpleScriptV2, ScriptHash)
+-&gt; ((SimpleScript SimpleScriptV2, ScriptHash) -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a.
+Applicative m =&gt;
+Maybe a -&gt; (a -&gt; m ()) -&gt; m ()
+</span><span class="hs-identifier hs-var">whenJust</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Timelock StandardCrypto
+-&gt; Maybe (SimpleScript SimpleScriptV2, ScriptHash)
+</span><a href="Mantra.Chain.Internal.html#interpretAsScript"><span class="hs-identifier hs-var">interpretAsScript</span></a></span><span> </span><span class="annot"><span class="annottext">Timelock StandardCrypto
+</span><a href="#local-6989586621679142769"><span class="hs-identifier hs-var">witness</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-155"></span><span>        </span><span class="annot"><span class="annottext">(((SimpleScript SimpleScriptV2, ScriptHash) -&gt; IO ()) -&gt; IO ())
+-&gt; ((SimpleScript SimpleScriptV2, ScriptHash) -&gt; IO ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679142768"><span class="annot"><span class="annottext">SimpleScript SimpleScriptV2
+</span><a href="#local-6989586621679142768"><span class="hs-identifier hs-var">script</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679142767"><span class="annot"><span class="annottext">ScriptHash
+</span><a href="#local-6989586621679142767"><span class="hs-identifier hs-var">hash</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ScriptHandler
+</span><a href="#local-6989586621679142775"><span class="hs-identifier hs-var">handler</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621679142772"><span class="hs-identifier hs-var">header</span></a></span><span> </span><span class="annot"><span class="annottext">TxId
+</span><a href="#local-6989586621679142766"><span class="hs-identifier hs-var">txId</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptHash
+</span><a href="#local-6989586621679142767"><span class="hs-identifier hs-var">hash</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleScript SimpleScriptV2
+</span><a href="#local-6989586621679142768"><span class="hs-identifier hs-var">script</span></a></span><span>
+</span><span id="line-156"></span><span>    </span><span class="hs-glyph">|</span><span>
+</span><span id="line-157"></span><span>      </span><span id="local-6989586621679142765"><span class="annot"><span class="annottext">Tx era
+</span><a href="#local-6989586621679142765"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Tx era]
+</span><a href="#local-6989586621679142771"><span class="hs-identifier hs-var">txs</span></a></span><span>
+</span><span id="line-158"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679142764"><span class="annot"><span class="annottext">body :: TxBody era
+</span><a href="#local-6989586621679142764"><span class="hs-identifier hs-var hs-var">body</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx era -&gt; TxBody era
+forall era. Tx era -&gt; TxBody era
+</span><span class="hs-identifier hs-var">getTxBody</span></span><span> </span><span class="annot"><span class="annottext">Tx era
+</span><a href="#local-6989586621679142765"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-159"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679142766"><span class="annot"><span class="annottext">txId :: TxId
+</span><a href="#local-6989586621679142766"><span class="hs-identifier hs-var hs-var">txId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxBody era -&gt; TxId
+forall era. TxBody era -&gt; TxId
+</span><span class="hs-identifier hs-var">getTxId</span></span><span> </span><span class="annot"><span class="annottext">TxBody era
+</span><a href="#local-6989586621679142764"><span class="hs-identifier hs-var">body</span></a></span><span>
+</span><span id="line-160"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621679142769"><span class="annot"><span class="annottext">Timelock StandardCrypto
+</span><a href="#local-6989586621679142769"><span class="hs-identifier hs-var">witness</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TxBody era -&gt; [Timelock StandardCrypto]
+forall era. TxBody era -&gt; [Timelock StandardCrypto]
+</span><a href="Mantra.Chain.html#extractTimelocks"><span class="hs-identifier hs-var">extractTimelocks</span></a></span><span> </span><span class="annot"><span class="annottext">TxBody era
+</span><a href="#local-6989586621679142764"><span class="hs-identifier hs-var">body</span></a></span><span>
+</span><span id="line-161"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-162"></span><span>
+</span><span id="line-163"></span><span>
+</span><span id="line-164"></span><span class="hs-comment">-- | Extract the time-lock scripts from a transaction body.</span><span>
+</span><span id="line-165"></span><span id="local-6989586621679142872"><span class="annot"><a href="Mantra.Chain.html#extractTimelocks"><span class="hs-identifier hs-type">extractTimelocks</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBody</span></span><span> </span><span class="annot"><a href="#local-6989586621679142872"><span class="hs-identifier hs-type">era</span></a></span><span>                                 </span><span class="hs-comment">-- ^ The transaction body.</span><span>
+</span><span id="line-166"></span><span>                 </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">ShelleyMA.Timelock</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.StandardCrypto</span></span><span class="hs-special">]</span><span> </span><span class="hs-comment">-- ^ The time-lock scripts.</span></span><span>
+</span><span id="line-167"></span><span id="extractTimelocks"><span class="annot"><span class="annottext">extractTimelocks :: TxBody era -&gt; [Timelock StandardCrypto]
+</span><a href="Mantra.Chain.html#extractTimelocks"><span class="hs-identifier hs-var hs-var">extractTimelocks</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyTxBody</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">ShelleyBasedEraAllegra</span></span><span> </span><span class="annot"><span class="annottext">TxBody (ShelleyLedgerEra era)
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679142761"><span class="annot"><span class="annottext">[Script (ShelleyLedgerEra era)]
+</span><a href="#local-6989586621679142761"><span class="hs-identifier hs-var">witnesses</span></a></span></span><span> </span><span class="annot"><span class="annottext">TxBodyScriptData era
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Maybe (AuxiliaryData (ShelleyLedgerEra era))
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">TxScriptValidity era
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Timelock StandardCrypto]
+[Script (ShelleyLedgerEra era)]
+</span><a href="#local-6989586621679142761"><span class="hs-identifier hs-var">witnesses</span></a></span><span>
+</span><span id="line-168"></span><span class="annot"><a href="Mantra.Chain.html#extractTimelocks"><span class="hs-identifier hs-var">extractTimelocks</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyTxBody</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">ShelleyBasedEraMary</span></span><span>    </span><span class="annot"><span class="annottext">TxBody (ShelleyLedgerEra era)
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679142759"><span class="annot"><span class="annottext">[Script (ShelleyLedgerEra era)]
+</span><a href="#local-6989586621679142759"><span class="hs-identifier hs-var">witnesses</span></a></span></span><span> </span><span class="annot"><span class="annottext">TxBodyScriptData era
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Maybe (AuxiliaryData (ShelleyLedgerEra era))
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">TxScriptValidity era
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Timelock StandardCrypto]
+[Script (ShelleyLedgerEra era)]
+</span><a href="#local-6989586621679142759"><span class="hs-identifier hs-var">witnesses</span></a></span><span>
+</span><span id="line-169"></span><span class="annot"><a href="Mantra.Chain.html#extractTimelocks"><span class="hs-identifier hs-var">extractTimelocks</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyTxBody</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">ShelleyBasedEraAlonzo</span></span><span>  </span><span class="annot"><span class="annottext">TxBody (ShelleyLedgerEra era)
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679142757"><span class="annot"><span class="annottext">[Script (ShelleyLedgerEra era)]
+</span><a href="#local-6989586621679142757"><span class="hs-identifier hs-var">witnesses</span></a></span></span><span> </span><span class="annot"><span class="annottext">TxBodyScriptData era
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Maybe (AuxiliaryData (ShelleyLedgerEra era))
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">TxScriptValidity era
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-170"></span><span>  </span><span class="annot"><span class="annottext">[Maybe (Timelock StandardCrypto)] -&gt; [Timelock StandardCrypto]
+forall a. [Maybe a] -&gt; [a]
+</span><span class="hs-identifier hs-var">catMaybes</span></span><span>
+</span><span id="line-171"></span><span>    </span><span class="hs-special">[</span><span>
+</span><span id="line-172"></span><span>     </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Script (AlonzoEra StandardCrypto)
+</span><a href="#local-6989586621679142756"><span class="hs-identifier hs-var">witness</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-173"></span><span>       </span><span class="annot"><span class="hs-identifier hs-type">LedgerAlonzo.TimelockScript</span></span><span> </span><span id="local-6989586621679142754"><span class="annot"><span class="annottext">Timelock (Crypto (AlonzoEra StandardCrypto))
+</span><a href="#local-6989586621679142754"><span class="hs-identifier hs-var">witness'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Timelock StandardCrypto -&gt; Maybe (Timelock StandardCrypto)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">Timelock StandardCrypto
+Timelock (Crypto (AlonzoEra StandardCrypto))
+</span><a href="#local-6989586621679142754"><span class="hs-identifier hs-var">witness'</span></a></span><span>
+</span><span id="line-174"></span><span>       </span><span class="annot"><span class="annottext">Script (AlonzoEra StandardCrypto)
+</span><span class="hs-identifier">_</span></span><span>                                    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (Timelock StandardCrypto)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-175"></span><span>    </span><span class="hs-glyph">|</span><span>
+</span><span id="line-176"></span><span>      </span><span id="local-6989586621679142756"><span class="annot"><span class="annottext">Script (AlonzoEra StandardCrypto)
+</span><a href="#local-6989586621679142756"><span class="hs-identifier hs-var">witness</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Script (ShelleyLedgerEra era)]
+[Script (AlonzoEra StandardCrypto)]
+</span><a href="#local-6989586621679142757"><span class="hs-identifier hs-var">witnesses</span></a></span><span>
+</span><span id="line-177"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-178"></span><span class="annot"><a href="Mantra.Chain.html#extractTimelocks"><span class="hs-identifier hs-var">extractTimelocks</span></a></span><span> </span><span class="annot"><span class="annottext">TxBody era
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-179"></span><span>
+</span><span id="line-180"></span><span>
+</span><span id="line-181"></span><span class="hs-comment">-- | Process a block.</span><span>
+</span><span id="line-182"></span><span class="hs-keyword">type</span><span> </span><span id="BlockHandler"><span class="annot"><a href="Mantra.Chain.html#BlockHandler"><span class="hs-identifier hs-var">BlockHandler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>  </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span> </span><span class="hs-comment">-- ^ The block header.</span><span>
+</span><span id="line-183"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainTip</span></span><span>    </span><span class="hs-comment">-- ^ The chain tip.</span><span>
+</span><span id="line-184"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>       </span><span class="hs-comment">-- ^ Action to process the block.</span><span>
+</span><span id="line-185"></span><span>
+</span><span id="line-186"></span><span>
+</span><span id="line-187"></span><span class="hs-comment">-- | Process a spent UTxO.</span><span>
+</span><span id="line-188"></span><span class="hs-keyword">type</span><span> </span><span id="TxInHandler"><span class="annot"><a href="Mantra.Chain.html#TxInHandler"><span class="hs-identifier hs-var">TxInHandler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>  </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span> </span><span class="hs-comment">-- ^ The block header.</span><span>
+</span><span id="line-189"></span><span>                 </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span>        </span><span class="hs-comment">-- ^ The UTxO.</span><span>
+</span><span id="line-190"></span><span>                 </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>       </span><span class="hs-comment">-- ^ Action to process a spent UTxO.</span><span>
+</span><span id="line-191"></span><span>
+</span><span id="line-192"></span><span>
+</span><span id="line-193"></span><span class="hs-comment">-- | Process a transaction's output.</span><span>
+</span><span id="line-194"></span><span class="hs-keyword">type</span><span> </span><span id="TxOutHandler"><span class="annot"><a href="Mantra.Chain.html#TxOutHandler"><span class="hs-identifier hs-var">TxOutHandler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679142753"><span class="annot"><a href="#local-6989586621679142753"><span class="hs-identifier hs-type">era</span></a></span></span><span>
+</span><span id="line-195"></span><span>                  </span><span class="hs-operator">.</span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsCardanoEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679142753"><span class="hs-identifier hs-type">era</span></a></span><span>
+</span><span id="line-196"></span><span>                  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span>   </span><span class="hs-comment">-- ^ The block header.</span><span>
+</span><span id="line-197"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">]</span><span>        </span><span class="hs-comment">-- ^ The spent UTxOs.</span><span>
+</span><span id="line-198"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span>          </span><span class="hs-comment">-- ^ The output UTxO.</span><span>
+</span><span id="line-199"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><a href="#local-6989586621679142753"><span class="hs-identifier hs-type">era</span></a></span><span>     </span><span class="hs-comment">-- ^ The transaction output.</span><span>
+</span><span id="line-200"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>         </span><span class="hs-comment">-- ^ Action to process a transaction's output.</span><span>
+</span><span id="line-201"></span><span>
+</span><span id="line-202"></span><span>
+</span><span id="line-203"></span><span class="hs-comment">-- | Watch transactions on the blockchain. Note that transaction output is reported *before* spent UTxOs.</span><span>
+</span><span id="line-204"></span><span id="local-6989586621679142752"><span class="annot"><a href="Mantra.Chain.html#watchTransactions"><span class="hs-identifier hs-type">watchTransactions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679142752"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-205"></span><span>                  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>                        </span><span class="hs-comment">-- ^ Path to the node's socket.</span><span>
+</span><span id="line-206"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConsensusModeParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span> </span><span class="hs-comment">-- ^ The consensus mode.</span><span>
+</span><span id="line-207"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span>                       </span><span class="hs-comment">-- ^ The network.</span><span>
+</span><span id="line-208"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Mantra.Chain.html#Reverter"><span class="hs-identifier hs-type">Reverter</span></a></span><span>                  </span><span class="hs-comment">-- ^ Handle rollbacks.</span><span>
+</span><span id="line-209"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Chain.html#IdleNotifier"><span class="hs-identifier hs-type">IdleNotifier</span></a></span><span>                    </span><span class="hs-comment">-- ^ Handle idleness.</span><span>
+</span><span id="line-210"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Chain.html#BlockHandler"><span class="hs-identifier hs-type">BlockHandler</span></a></span><span>                    </span><span class="hs-comment">-- ^ Handle blocks.</span><span>
+</span><span id="line-211"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Chain.html#TxInHandler"><span class="hs-identifier hs-type">TxInHandler</span></a></span><span>                     </span><span class="hs-comment">-- ^ Handle spent UTxOs.</span><span>
+</span><span id="line-212"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Chain.html#TxOutHandler"><span class="hs-identifier hs-type">TxOutHandler</span></a></span><span>                    </span><span class="hs-comment">-- ^ Handle transaction output.</span><span>
+</span><span id="line-213"></span><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Types.html#MantraM"><span class="hs-identifier hs-type">MantraM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679142752"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>                    </span><span class="hs-comment">-- ^ Action to watch transactions.</span></span><span>
+</span><span id="line-214"></span><span id="watchTransactions"><span class="annot"><span class="annottext">watchTransactions :: FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; Maybe Reverter
+-&gt; IdleNotifier
+-&gt; BlockHandler
+-&gt; TxInHandler
+-&gt; TxOutHandler
+-&gt; MantraM m ()
+</span><a href="Mantra.Chain.html#watchTransactions"><span class="hs-identifier hs-var hs-var">watchTransactions</span></a></span></span><span> </span><span id="local-6989586621679142751"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679142751"><span class="hs-identifier hs-var">socketPath</span></a></span></span><span> </span><span id="local-6989586621679142750"><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679142750"><span class="hs-identifier hs-var">mode</span></a></span></span><span> </span><span id="local-6989586621679142749"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679142749"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span id="local-6989586621679142748"><span class="annot"><span class="annottext">Maybe Reverter
+</span><a href="#local-6989586621679142748"><span class="hs-identifier hs-var">revertPoint</span></a></span></span><span> </span><span id="local-6989586621679142747"><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679142747"><span class="hs-identifier hs-var">notifyIdle</span></a></span></span><span> </span><span id="local-6989586621679142746"><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679142746"><span class="hs-identifier hs-var">blockHandler</span></a></span></span><span> </span><span id="local-6989586621679142745"><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679142745"><span class="hs-identifier hs-var">inHandler</span></a></span></span><span> </span><span id="local-6989586621679142744"><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679142744"><span class="hs-identifier hs-var">outHandler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-215"></span><span>  </span><span class="annot"><span class="annottext">FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; IdleNotifier
+-&gt; Maybe Reverter
+-&gt; Processor
+-&gt; MantraM m ()
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+FilePath
+-&gt; ConsensusModeParams CardanoMode
+-&gt; NetworkId
+-&gt; IdleNotifier
+-&gt; Maybe Reverter
+-&gt; Processor
+-&gt; MantraM m ()
+</span><a href="Mantra.Chain.html#walkBlocks"><span class="hs-identifier hs-var">walkBlocks</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679142751"><span class="hs-identifier hs-var">socketPath</span></a></span><span> </span><span class="annot"><span class="annottext">ConsensusModeParams CardanoMode
+</span><a href="#local-6989586621679142750"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679142749"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">IdleNotifier
+</span><a href="#local-6989586621679142747"><span class="hs-identifier hs-var">notifyIdle</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Reverter
+</span><a href="#local-6989586621679142748"><span class="hs-identifier hs-var">revertPoint</span></a></span><span>
+</span><span id="line-216"></span><span>    </span><span class="annot"><span class="annottext">(Processor -&gt; MantraM m ()) -&gt; Processor -&gt; MantraM m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockHandler -&gt; TxInHandler -&gt; TxOutHandler -&gt; Processor
+</span><a href="Mantra.Chain.html#processTransactions"><span class="hs-identifier hs-var">processTransactions</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679142746"><span class="hs-identifier hs-var">blockHandler</span></a></span><span> </span><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679142745"><span class="hs-identifier hs-var">inHandler</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679142744"><span class="hs-identifier hs-var">outHandler</span></a></span><span>
+</span><span id="line-217"></span><span>
+</span><span id="line-218"></span><span>
+</span><span id="line-219"></span><span class="hs-comment">-- | Process transactions.</span><span>
+</span><span id="line-220"></span><span class="annot"><a href="Mantra.Chain.html#processTransactions"><span class="hs-identifier hs-type">processTransactions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Mantra.Chain.html#BlockHandler"><span class="hs-identifier hs-type">BlockHandler</span></a></span><span>            </span><span class="hs-comment">-- ^ Handle blocks.</span><span>
+</span><span id="line-221"></span><span>                    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Chain.html#TxInHandler"><span class="hs-identifier hs-type">TxInHandler</span></a></span><span>             </span><span class="hs-comment">-- ^ Handle spent UTxOs.</span><span>
+</span><span id="line-222"></span><span>                    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Chain.html#TxOutHandler"><span class="hs-identifier hs-type">TxOutHandler</span></a></span><span>            </span><span class="hs-comment">-- ^ Handle transaction output.</span><span>
+</span><span id="line-223"></span><span>                    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoMode</span></span><span> </span><span class="hs-comment">-- ^ The block.</span><span>
+</span><span id="line-224"></span><span>                    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainTip</span></span><span>                </span><span class="hs-comment">-- ^ The chain tip.</span><span>
+</span><span id="line-225"></span><span>                    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>                   </span><span class="hs-comment">-- ^ Action to process transactions.</span><span>
+</span><span id="line-226"></span><span id="processTransactions"><span class="annot"><span class="annottext">processTransactions :: BlockHandler -&gt; TxInHandler -&gt; TxOutHandler -&gt; Processor
+</span><a href="Mantra.Chain.html#processTransactions"><span class="hs-identifier hs-var hs-var">processTransactions</span></a></span></span><span> </span><span id="local-6989586621679142742"><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679142742"><span class="hs-identifier hs-var">blockHandler</span></a></span></span><span> </span><span id="local-6989586621679142741"><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679142741"><span class="hs-identifier hs-var">inHandler</span></a></span></span><span> </span><span id="local-6989586621679142740"><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679142740"><span class="hs-identifier hs-var">outHandler</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span id="local-6989586621679142739"><span class="annot"><span class="annottext">Block era
+</span><a href="#local-6989586621679142739"><span class="hs-identifier hs-var">block</span></a></span></span><span> </span><span class="annot"><span class="annottext">EraInMode era CardanoMode
+</span><span class="hs-identifier hs-var">AlonzoEraInCardanoMode</span></span><span> </span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-227"></span><span>  </span><span class="annot"><span class="annottext">BlockHandler
+-&gt; TxInHandler -&gt; TxOutHandler -&gt; Block era -&gt; ChainTip -&gt; IO ()
+forall era.
+IsCardanoEra era =&gt;
+BlockHandler
+-&gt; TxInHandler -&gt; TxOutHandler -&gt; Block era -&gt; ChainTip -&gt; IO ()
+</span><a href="Mantra.Chain.html#processTransactions%27"><span class="hs-identifier hs-var">processTransactions'</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679142742"><span class="hs-identifier hs-var">blockHandler</span></a></span><span> </span><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679142741"><span class="hs-identifier hs-var">inHandler</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679142740"><span class="hs-identifier hs-var">outHandler</span></a></span><span> </span><span class="annot"><span class="annottext">Block era
+</span><a href="#local-6989586621679142739"><span class="hs-identifier hs-var">block</span></a></span><span>
+</span><span id="line-228"></span><span class="annot"><a href="Mantra.Chain.html#processTransactions"><span class="hs-identifier hs-var">processTransactions</span></a></span><span> </span><span id="local-6989586621679142736"><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679142736"><span class="hs-identifier hs-var">blockHandler</span></a></span></span><span> </span><span id="local-6989586621679142735"><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679142735"><span class="hs-identifier hs-var">inHandler</span></a></span></span><span> </span><span id="local-6989586621679142734"><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679142734"><span class="hs-identifier hs-var">outHandler</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span id="local-6989586621679142733"><span class="annot"><span class="annottext">Block era
+</span><a href="#local-6989586621679142733"><span class="hs-identifier hs-var">block</span></a></span></span><span> </span><span class="annot"><span class="annottext">EraInMode era CardanoMode
+</span><span class="hs-identifier hs-var">MaryEraInCardanoMode</span></span><span>   </span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-229"></span><span>  </span><span class="annot"><span class="annottext">BlockHandler
+-&gt; TxInHandler -&gt; TxOutHandler -&gt; Block era -&gt; ChainTip -&gt; IO ()
+forall era.
+IsCardanoEra era =&gt;
+BlockHandler
+-&gt; TxInHandler -&gt; TxOutHandler -&gt; Block era -&gt; ChainTip -&gt; IO ()
+</span><a href="Mantra.Chain.html#processTransactions%27"><span class="hs-identifier hs-var">processTransactions'</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679142736"><span class="hs-identifier hs-var">blockHandler</span></a></span><span> </span><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679142735"><span class="hs-identifier hs-var">inHandler</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679142734"><span class="hs-identifier hs-var">outHandler</span></a></span><span> </span><span class="annot"><span class="annottext">Block era
+</span><a href="#local-6989586621679142733"><span class="hs-identifier hs-var">block</span></a></span><span>
+</span><span id="line-230"></span><span class="annot"><a href="Mantra.Chain.html#processTransactions"><span class="hs-identifier hs-var">processTransactions</span></a></span><span> </span><span id="local-6989586621679142731"><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679142731"><span class="hs-identifier hs-var">blockHandler</span></a></span></span><span> </span><span id="local-6989586621679142730"><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679142730"><span class="hs-identifier hs-var">inHandler</span></a></span></span><span> </span><span id="local-6989586621679142729"><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679142729"><span class="hs-identifier hs-var">outHandler</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span id="local-6989586621679142728"><span class="annot"><span class="annottext">Block era
+</span><a href="#local-6989586621679142728"><span class="hs-identifier hs-var">block</span></a></span></span><span> </span><span class="annot"><span class="annottext">EraInMode era CardanoMode
+</span><span class="hs-identifier hs-var">AllegraEraInCardanoMode</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-231"></span><span>  </span><span class="annot"><span class="annottext">BlockHandler
+-&gt; TxInHandler -&gt; TxOutHandler -&gt; Block era -&gt; ChainTip -&gt; IO ()
+forall era.
+IsCardanoEra era =&gt;
+BlockHandler
+-&gt; TxInHandler -&gt; TxOutHandler -&gt; Block era -&gt; ChainTip -&gt; IO ()
+</span><a href="Mantra.Chain.html#processTransactions%27"><span class="hs-identifier hs-var">processTransactions'</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679142731"><span class="hs-identifier hs-var">blockHandler</span></a></span><span> </span><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679142730"><span class="hs-identifier hs-var">inHandler</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679142729"><span class="hs-identifier hs-var">outHandler</span></a></span><span> </span><span class="annot"><span class="annottext">Block era
+</span><a href="#local-6989586621679142728"><span class="hs-identifier hs-var">block</span></a></span><span>
+</span><span id="line-232"></span><span class="annot"><a href="Mantra.Chain.html#processTransactions"><span class="hs-identifier hs-var">processTransactions</span></a></span><span> </span><span id="local-6989586621679142726"><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679142726"><span class="hs-identifier hs-var">blockHandler</span></a></span></span><span> </span><span id="local-6989586621679142725"><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679142725"><span class="hs-identifier hs-var">inHandler</span></a></span></span><span> </span><span id="local-6989586621679142724"><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679142724"><span class="hs-identifier hs-var">outHandler</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span id="local-6989586621679142723"><span class="annot"><span class="annottext">Block era
+</span><a href="#local-6989586621679142723"><span class="hs-identifier hs-var">block</span></a></span></span><span> </span><span class="annot"><span class="annottext">EraInMode era CardanoMode
+</span><span class="hs-identifier hs-var">ShelleyEraInCardanoMode</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-233"></span><span>  </span><span class="annot"><span class="annottext">BlockHandler
+-&gt; TxInHandler -&gt; TxOutHandler -&gt; Block era -&gt; ChainTip -&gt; IO ()
+forall era.
+IsCardanoEra era =&gt;
+BlockHandler
+-&gt; TxInHandler -&gt; TxOutHandler -&gt; Block era -&gt; ChainTip -&gt; IO ()
+</span><a href="Mantra.Chain.html#processTransactions%27"><span class="hs-identifier hs-var">processTransactions'</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679142726"><span class="hs-identifier hs-var">blockHandler</span></a></span><span> </span><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679142725"><span class="hs-identifier hs-var">inHandler</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679142724"><span class="hs-identifier hs-var">outHandler</span></a></span><span> </span><span class="annot"><span class="annottext">Block era
+</span><a href="#local-6989586621679142723"><span class="hs-identifier hs-var">block</span></a></span><span>
+</span><span id="line-234"></span><span class="annot"><a href="Mantra.Chain.html#processTransactions"><span class="hs-identifier hs-var">processTransactions</span></a></span><span> </span><span id="local-6989586621679142721"><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679142721"><span class="hs-identifier hs-var">blockHandler</span></a></span></span><span> </span><span id="local-6989586621679142720"><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679142720"><span class="hs-identifier hs-var">inHandler</span></a></span></span><span> </span><span id="local-6989586621679142719"><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679142719"><span class="hs-identifier hs-var">outHandler</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BlockInMode</span></span><span> </span><span id="local-6989586621679142718"><span class="annot"><span class="annottext">Block era
+</span><a href="#local-6989586621679142718"><span class="hs-identifier hs-var">block</span></a></span></span><span> </span><span class="annot"><span class="annottext">EraInMode era CardanoMode
+</span><span class="hs-identifier hs-var">ByronEraInCardanoMode</span></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-235"></span><span>  </span><span class="annot"><span class="annottext">BlockHandler
+-&gt; TxInHandler -&gt; TxOutHandler -&gt; Block era -&gt; ChainTip -&gt; IO ()
+forall era.
+IsCardanoEra era =&gt;
+BlockHandler
+-&gt; TxInHandler -&gt; TxOutHandler -&gt; Block era -&gt; ChainTip -&gt; IO ()
+</span><a href="Mantra.Chain.html#processTransactions%27"><span class="hs-identifier hs-var">processTransactions'</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679142721"><span class="hs-identifier hs-var">blockHandler</span></a></span><span> </span><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679142720"><span class="hs-identifier hs-var">inHandler</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679142719"><span class="hs-identifier hs-var">outHandler</span></a></span><span> </span><span class="annot"><span class="annottext">Block era
+</span><a href="#local-6989586621679142718"><span class="hs-identifier hs-var">block</span></a></span><span>
+</span><span id="line-236"></span><span>
+</span><span id="line-237"></span><span>
+</span><span id="line-238"></span><span class="hs-comment">-- | Process transactions in a Cardano era.</span><span>
+</span><span id="line-239"></span><span id="local-6989586621679142854"><span class="annot"><a href="Mantra.Chain.html#processTransactions%27"><span class="hs-identifier hs-type">processTransactions'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCardanoEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679142854"><span class="hs-identifier hs-type">era</span></a></span><span>
+</span><span id="line-240"></span><span>                     </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Mantra.Chain.html#BlockHandler"><span class="hs-identifier hs-type">BlockHandler</span></a></span><span> </span><span class="hs-comment">-- ^ Handle blocks.</span><span>
+</span><span id="line-241"></span><span>                     </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Chain.html#TxInHandler"><span class="hs-identifier hs-type">TxInHandler</span></a></span><span>  </span><span class="hs-comment">-- ^ Handle spent UTxOs.</span><span>
+</span><span id="line-242"></span><span>                     </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Mantra.Chain.html#TxOutHandler"><span class="hs-identifier hs-type">TxOutHandler</span></a></span><span> </span><span class="hs-comment">-- ^ Handle transaction output.</span><span>
+</span><span id="line-243"></span><span>                     </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Block</span></span><span> </span><span class="annot"><a href="#local-6989586621679142854"><span class="hs-identifier hs-type">era</span></a></span><span>    </span><span class="hs-comment">-- ^ The block.</span><span>
+</span><span id="line-244"></span><span>                     </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainTip</span></span><span>     </span><span class="hs-comment">-- ^ The chain tip.</span><span>
+</span><span id="line-245"></span><span>                     </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>        </span><span class="hs-comment">-- ^ Action to process transactions.</span></span><span>
+</span><span id="line-246"></span><span id="processTransactions%27"><span class="annot"><span class="annottext">processTransactions' :: BlockHandler
+-&gt; TxInHandler -&gt; TxOutHandler -&gt; Block era -&gt; ChainTip -&gt; IO ()
+</span><a href="Mantra.Chain.html#processTransactions%27"><span class="hs-identifier hs-var hs-var">processTransactions'</span></a></span></span><span> </span><span id="local-6989586621679142716"><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679142716"><span class="hs-identifier hs-var">blockHandler</span></a></span></span><span> </span><span id="local-6989586621679142715"><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679142715"><span class="hs-identifier hs-var">inHandler</span></a></span></span><span> </span><span id="local-6989586621679142714"><span class="annot"><span class="annottext">TxOutHandler
+</span><a href="#local-6989586621679142714"><span class="hs-identifier hs-var">outHandler</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Block</span></span><span> </span><span id="local-6989586621679142713"><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621679142713"><span class="hs-identifier hs-var">header</span></a></span></span><span> </span><span id="local-6989586621679142712"><span class="annot"><span class="annottext">[Tx era]
+</span><a href="#local-6989586621679142712"><span class="hs-identifier hs-var">txs</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679142711"><span class="annot"><span class="annottext">ChainTip
+</span><a href="#local-6989586621679142711"><span class="hs-identifier hs-var">tip</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-247"></span><span>  </span><span class="hs-keyword">do</span><span>
+</span><span id="line-248"></span><span>    </span><span class="annot"><span class="annottext">BlockHandler
+</span><a href="#local-6989586621679142716"><span class="hs-identifier hs-var">blockHandler</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621679142713"><span class="hs-identifier hs-var">header</span></a></span><span> </span><span class="annot"><span class="annottext">ChainTip
+</span><a href="#local-6989586621679142711"><span class="hs-identifier hs-var">tip</span></a></span><span>
+</span><span id="line-249"></span><span>    </span><span class="annot"><span class="annottext">[IO ()] -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a.
+(Foldable t, Monad m) =&gt;
+t (m a) -&gt; m ()
+</span><span class="hs-identifier hs-var">sequence_</span></span><span>
+</span><span id="line-250"></span><span>      </span><span class="hs-special">[</span><span>
+</span><span id="line-251"></span><span>        </span><span class="hs-keyword">do</span><span>
+</span><span id="line-252"></span><span>          </span><span class="annot"><span class="annottext">[IO ()] -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a.
+(Foldable t, Monad m) =&gt;
+t (m a) -&gt; m ()
+</span><span class="hs-identifier hs-var">sequence_</span></span><span>
+</span><span id="line-253"></span><span>            </span><span class="hs-special">[</span><span>
+</span><span id="line-254"></span><span>              </span><span class="annot"><span class="annottext">BlockHeader -&gt; [TxIn] -&gt; TxIn -&gt; TxOut era -&gt; IO ()
+TxOutHandler
+</span><a href="#local-6989586621679142714"><span class="hs-identifier hs-var">outHandler</span></a></span><span>
+</span><span id="line-255"></span><span>                </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621679142713"><span class="hs-identifier hs-var">header</span></a></span><span>
+</span><span id="line-256"></span><span>                </span><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621679142710"><span class="hs-identifier hs-var">txins</span></a></span><span>
+</span><span id="line-257"></span><span>                </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxId -&gt; TxIx -&gt; TxIn
+</span><span class="hs-identifier hs-var">TxIn</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxBody era -&gt; TxId
+forall era. TxBody era -&gt; TxId
+</span><span class="hs-identifier hs-var">getTxId</span></span><span> </span><span class="annot"><span class="annottext">TxBody era
+</span><a href="#local-6989586621679142708"><span class="hs-identifier hs-var">body</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word -&gt; TxIx
+</span><span class="hs-identifier hs-var">TxIx</span></span><span> </span><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679142706"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-258"></span><span>                </span><span class="annot"><span class="annottext">TxOut era
+</span><a href="#local-6989586621679142705"><span class="hs-identifier hs-var">txout</span></a></span><span>
+</span><span id="line-259"></span><span>            </span><span class="hs-glyph">|</span><span>
+</span><span id="line-260"></span><span>              </span><span class="hs-special">(</span><span id="local-6989586621679142706"><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679142706"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679142705"><span class="annot"><span class="annottext">TxOut era
+</span><a href="#local-6989586621679142705"><span class="hs-identifier hs-var">txout</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Word] -&gt; [TxOut era] -&gt; [(Word, TxOut era)]
+forall a b. [a] -&gt; [b] -&gt; [(a, b)]
+</span><span class="hs-identifier hs-var">zip</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">0</span></span><span class="hs-glyph">..</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[TxOut era]
+</span><a href="#local-6989586621679142704"><span class="hs-identifier hs-var">txouts</span></a></span><span>
+</span><span id="line-261"></span><span>            </span><span class="hs-special">]</span><span>
+</span><span id="line-262"></span><span>          </span><span class="annot"><span class="annottext">[IO ()] -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a.
+(Foldable t, Monad m) =&gt;
+t (m a) -&gt; m ()
+</span><span class="hs-identifier hs-var">sequence_</span></span><span>
+</span><span id="line-263"></span><span>            </span><span class="hs-special">[</span><span>
+</span><span id="line-264"></span><span>              </span><span class="annot"><span class="annottext">TxInHandler
+</span><a href="#local-6989586621679142715"><span class="hs-identifier hs-var">inHandler</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621679142713"><span class="hs-identifier hs-var">header</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679142703"><span class="hs-identifier hs-var">txin</span></a></span><span>
+</span><span id="line-265"></span><span>            </span><span class="hs-glyph">|</span><span>
+</span><span id="line-266"></span><span>              </span><span id="local-6989586621679142703"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679142703"><span class="hs-identifier hs-var">txin</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621679142710"><span class="hs-identifier hs-var">txins</span></a></span><span>
+</span><span id="line-267"></span><span>            </span><span class="hs-special">]</span><span>
+</span><span id="line-268"></span><span>      </span><span class="hs-glyph">|</span><span>
+</span><span id="line-269"></span><span>        </span><span id="local-6989586621679142702"><span class="annot"><span class="annottext">Tx era
+</span><a href="#local-6989586621679142702"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Tx era]
+</span><a href="#local-6989586621679142712"><span class="hs-identifier hs-var">txs</span></a></span><span>
+</span><span id="line-270"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679142708"><span class="annot"><span class="annottext">body :: TxBody era
+</span><a href="#local-6989586621679142708"><span class="hs-identifier hs-var hs-var">body</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx era -&gt; TxBody era
+forall era. Tx era -&gt; TxBody era
+</span><span class="hs-identifier hs-var">getTxBody</span></span><span> </span><span class="annot"><span class="annottext">Tx era
+</span><a href="#local-6989586621679142702"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-271"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">TxBody</span></span><span> </span><span id="local-6989586621679142700"><span class="annot"><span class="annottext">TxBodyContent ViewTx era
+</span><a href="#local-6989586621679142700"><span class="hs-identifier hs-var">content</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxBody era
+</span><a href="#local-6989586621679142708"><span class="hs-identifier hs-var">body</span></a></span><span>
+</span><span id="line-272"></span><span>            </span><span id="local-6989586621679142710"><span class="annot"><span class="annottext">txins :: [TxIn]
+</span><a href="#local-6989586621679142710"><span class="hs-identifier hs-var hs-var">txins</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(TxIn, BuildTxWith ViewTx (Witness WitCtxTxIn era)) -&gt; TxIn
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">((TxIn, BuildTxWith ViewTx (Witness WitCtxTxIn era)) -&gt; TxIn)
+-&gt; [(TxIn, BuildTxWith ViewTx (Witness WitCtxTxIn era))] -&gt; [TxIn]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">TxBodyContent ViewTx era
+-&gt; [(TxIn, BuildTxWith ViewTx (Witness WitCtxTxIn era))]
+forall build era. TxBodyContent build era -&gt; TxIns build era
+</span><span class="hs-identifier hs-var hs-var">txIns</span></span><span> </span><span class="annot"><span class="annottext">TxBodyContent ViewTx era
+</span><a href="#local-6989586621679142700"><span class="hs-identifier hs-var">content</span></a></span><span>
+</span><span id="line-273"></span><span>            </span><span id="local-6989586621679142704"><span class="annot"><span class="annottext">txouts :: [TxOut era]
+</span><a href="#local-6989586621679142704"><span class="hs-identifier hs-var hs-var">txouts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxBodyContent ViewTx era -&gt; [TxOut era]
+forall build era. TxBodyContent build era -&gt; [TxOut era]
+</span><span class="hs-identifier hs-var hs-var">txOuts</span></span><span> </span><span class="annot"><span class="annottext">TxBodyContent ViewTx era
+</span><a href="#local-6989586621679142700"><span class="hs-identifier hs-var">content</span></a></span><span>
+</span><span id="line-274"></span><span>      </span><span class="hs-special">]</span><span>
+</span><span id="line-275"></span></pre></body></html>

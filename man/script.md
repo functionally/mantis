@@ -1,8 +1,8 @@
 # Construct a minting script and compute its Policy ID
 
-	$ mantis script --help
+	$ mantra script --help
 	
-	Usage: mantis script CONFIG_FILE [--expires SLOT] [--script SCRIPT_FILE]
+	Usage: mantra script CONFIG_FILE [--expires SLOT] [--script SCRIPT_FILE]
 	  Construct a minting script and compute its Policy ID.
 	
 	Available options:

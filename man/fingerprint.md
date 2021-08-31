@@ -1,8 +1,8 @@
 # Computing the Bech32 fingerprint of a token
 
-	$ mantis fingerprint --help
+	$ mantra fingerprint --help
 	
-	Usage: mantis fingerprint POLICY_ID ASSET_NAME
+	Usage: mantra fingerprint POLICY_ID ASSET_NAME
 	  Compute the Bech32 fingerprint of a token.
 	
 	Available options:

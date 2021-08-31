@@ -4,10 +4,15 @@ module Main (
 ) where
 
 
-import Paths_mantis (version)
+import Cardano.Api  (AsType(..), ShelleyBasedEra(..))
+import Paths_mantra (version)
 
-import qualified Mantis.Command as Mantis
+import qualified Mantra.Command as Mantra
 
 
 main :: IO ()
-main = Mantis.main version
+main =
+  Mantra.main
+    version
+    AsMaryEra
+    ShelleyBasedEraMary

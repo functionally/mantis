@@ -1,0 +1,85 @@
+cabal-version: >= 1.10
+
+name              : mantra
+description       : This tool provides several script-oriented utilities for the Cardano blockchain. In particular, it posts metadata or mints/burns tokens. It can also generate scripts, compute script addresses, compute the fingerprint of a token, and download scripts.
+version           : 0.4.0.0
+license           : MIT
+license-file      : LICENSE
+author            : Brian W Bush
+maintainer        : code@functionally.io
+category          : Network
+build-type        : Simple
+extra-source-files: ReadMe.md
+
+library
+  exposed-modules : Mantra.Asset
+                    Mantra.Chain
+                    Mantra.Chain.Internal
+                    Mantra.Query
+                    Mantra.Script
+                    Mantra.Transaction
+                    Mantra.Types
+                    Mantra.Wallet
+  build-depends   : base >= 4.14 && < 4.15
+                  , aeson
+                  , aeson-pretty
+                  , base16-bytestring
+                  , bech32
+                  , bytestring
+                  , cardano-api
+                  , cardano-ledger-core
+                  , cardano-ledger-shelley-ma
+                  , cardano-ledger-alonzo
+                  , containers
+                  , cryptonite
+                  , extra
+                  , filepath
+                  , memory
+                  , mtl
+                  , ouroboros-network
+                  , shelley-spec-ledger
+                  , strict-containers
+                  , text
+                  , transformers
+                  , transformers-except
+                  , unordered-containers
+  hs-source-dirs  : src
+  default-language: Haskell2010
+  ghc-options     : -Wall
+
+executable mantra
+  main-is         : Main.hs
+  other-modules   : Mantra.Command
+                    Mantra.Command.Bech32
+                    Mantra.Command.Chain
+                    Mantra.Command.Fingerprint
+                    Mantra.Command.Info
+                    Mantra.Command.Mint
+                    Mantra.Command.Script
+                    Mantra.Command.Transact
+                    Mantra.Command.Types
+                    Mantra.Command.Watch
+                    Paths_mantra
+  build-depends   : base >= 4.14 && < 4.15
+                  , aeson
+                  , aeson-pretty
+                  , base16-bytestring
+                  , bech32
+                  , bytestring
+                  , cardano-api
+                  , containers
+                  , cryptonite
+                  , extra
+                  , filepath
+                  , mantra
+                  , memory
+                  , mtl
+                  , optparse-applicative
+                  , ouroboros-network
+                  , text
+                  , transformers
+                  , transformers-except
+                  , unordered-containers
+  hs-source-dirs  : app
+  default-language: Haskell2010
+  ghc-options     : -Wall
