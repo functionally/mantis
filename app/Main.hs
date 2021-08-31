@@ -14,5 +14,5 @@ main :: IO ()
 main =
   Mantra.main
     version
-    AsMaryEra
-    ShelleyBasedEraMary
+    AsAlonzoEra
+    ShelleyBasedEraAlonzo
