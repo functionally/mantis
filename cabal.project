@@ -7,44 +7,44 @@ index-state: 2021-04-30T00:00:00Z
 packages: .
 
 
---  -- FIXME: On some platforms, one may need to explicitly specify the locations of certain
---  --        header and library files.
---  package zlib
---    extra-include-dirs: /nix/store/m11lzq9kbi76yx339hqi98sjvv3l3jxh-zlib-1.2.11-dev/include
---    extra-lib-dirs:     /nix/store/qvgf4g9c5h3wzq4xjy566vc0pqgc9fjq-zlib-1.2.11/lib
---  package digest
---    extra-include-dirs: /nix/store/m11lzq9kbi76yx339hqi98sjvv3l3jxh-zlib-1.2.11-dev/include
---    extra-lib-dirs:     /nix/store/qvgf4g9c5h3wzq4xjy566vc0pqgc9fjq-zlib-1.2.11/lib
+-- FIXME: On some platforms, one may need to explicitly specify the locations of certain
+--        header and library files.
+package zlib
+  extra-include-dirs: /nix/store/m11lzq9kbi76yx339hqi98sjvv3l3jxh-zlib-1.2.11-dev/include
+  extra-lib-dirs:     /nix/store/qvgf4g9c5h3wzq4xjy566vc0pqgc9fjq-zlib-1.2.11/lib
+package digest
+  extra-include-dirs: /nix/store/m11lzq9kbi76yx339hqi98sjvv3l3jxh-zlib-1.2.11-dev/include
+  extra-lib-dirs:     /nix/store/qvgf4g9c5h3wzq4xjy566vc0pqgc9fjq-zlib-1.2.11/lib
 
 
-package cardano-api
-  ghc-options: -Werror
+age cardano-api
+c-options: -Werror
 
-package cardano-cli
-  ghc-options: -Werror
+age cardano-cli
+c-options: -Werror
 
-package cardano-config
-  ghc-options: -Werror
+age cardano-config
+c-options: -Werror
 
-package cardano-node
-  ghc-options: -Werror
+age cardano-node
+c-options: -Werror
 
-package cardano-node-chairman
-  ghc-options: -Werror
+age cardano-node-chairman
+c-options: -Werror
 
-package tx-generator
-  ghc-options: -Werror
+age tx-generator
+c-options: -Werror
 
-package cryptonite
-  flags: -support_rdrand
+age cryptonite
+ags: -support_rdrand
 
-package cardano-crypto-praos
-  flags: -external-libsodium-vrf
+age cardano-crypto-praos
+ags: -external-libsodium-vrf
 
 
-tests: False
+s: False
 
-test-show-details: direct
+-show-details: direct
 
 
 -- ------------------------------------------------------------- --
@@ -58,9 +58,9 @@ test-show-details: direct
 
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/cardano-node
-  tag: 4c59442958072657812c6c0bb8e0b4ab85ce1ba2
-  --sha256: 0pc26hrgdsf93h3qvp8m76axm4jspzclg6psn14mbaf1mkc1fxmx
+  location: https://github.com/functionally/cardano-node
+  tag: dd8d0224a1f44dd97d47351645d4b76115734c62
+  --sha256: 1gsi1yq9gb6mbbbacv4fsn84v3lhl110mklj4g2kc1krax3zxyq5
   subdir:
     cardano-api
 
