@@ -7,44 +7,44 @@ index-state: 2021-04-30T00:00:00Z
 packages: .
 
 
--- FIXME: On some platforms, one may need to explicitly specify the locations of certain
---        header and library files.
-package zlib
-  extra-include-dirs: /nix/store/m11lzq9kbi76yx339hqi98sjvv3l3jxh-zlib-1.2.11-dev/include
-  extra-lib-dirs:     /nix/store/qvgf4g9c5h3wzq4xjy566vc0pqgc9fjq-zlib-1.2.11/lib
-package digest
-  extra-include-dirs: /nix/store/m11lzq9kbi76yx339hqi98sjvv3l3jxh-zlib-1.2.11-dev/include
-  extra-lib-dirs:     /nix/store/qvgf4g9c5h3wzq4xjy566vc0pqgc9fjq-zlib-1.2.11/lib
+--  -- FIXME: On some platforms, one may need to explicitly specify the locations of certain
+--  --        header and library files.
+--  package zlib
+--    extra-include-dirs: /nix/store/m11lzq9kbi76yx339hqi98sjvv3l3jxh-zlib-1.2.11-dev/include
+--    extra-lib-dirs:     /nix/store/qvgf4g9c5h3wzq4xjy566vc0pqgc9fjq-zlib-1.2.11/lib
+--  package digest
+--    extra-include-dirs: /nix/store/m11lzq9kbi76yx339hqi98sjvv3l3jxh-zlib-1.2.11-dev/include
+--    extra-lib-dirs:     /nix/store/qvgf4g9c5h3wzq4xjy566vc0pqgc9fjq-zlib-1.2.11/lib
 
 
-age cardano-api
-c-options: -Werror
+package cardano-api
+  ghc-options: -Werror
 
-age cardano-cli
-c-options: -Werror
+package cardano-cli
+  ghc-options: -Werror
 
-age cardano-config
-c-options: -Werror
+package cardano-config
+  ghc-options: -Werror
 
-age cardano-node
-c-options: -Werror
+package cardano-node
+  ghc-options: -Werror
 
-age cardano-node-chairman
-c-options: -Werror
+package cardano-node-chairman
+  ghc-options: -Werror
 
-age tx-generator
-c-options: -Werror
+package tx-generator
+  ghc-options: -Werror
 
-age cryptonite
-ags: -support_rdrand
+package cryptonite
+  flags: -support_rdrand
 
-age cardano-crypto-praos
-ags: -external-libsodium-vrf
+package cardano-crypto-praos
+  flags: -external-libsodium-vrf
 
 
-s: False
+tests: False
 
--show-details: direct
+test-show-details: direct
 
 
 -- ------------------------------------------------------------- --
