@@ -124,4 +124,4 @@ The configuration file contains the basic network information, along with the fu
 API documentation
 -----------------
 
-See https://functionally.github.io/mantra/ for API documentation.
+See https://functionally.github.io/mantis/ for API documentation.
