@@ -15,12 +15,14 @@
 
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 
 module Mantra.Chain (
 -- * Handlers
-  Processor
+  Recorder
+, Processor
 , Reverter
 , IdleNotifier
 , ScriptHandler
@@ -30,21 +32,80 @@ module Mantra.Chain (
 , walkBlocks
 , extractScripts
 , watchTransactions
+-- * Points
+, savePoint
+, loadPoint
 ) where
 
 
-import Cardano.Api (Block(..), BlockHeader(..), BlockInMode(..), CardanoMode, ChainPoint, ChainTip, ConsensusModeParams, EraInMode(..), IsCardanoEra, LocalNodeClientProtocols(..), LocalChainSyncClient(..), LocalNodeConnectInfo(..), NetworkId, ScriptHash, ShelleyBasedEra(..), SimpleScript, SimpleScriptV2, TxBody(..), TxBodyContent(..), TxId, TxIn(..), TxIx(..), TxOut(..), connectToLocalNode, getTxBody, getTxId)
-import Cardano.Api.ChainSync.Client (ChainSyncClient(..), ClientStIdle(..), ClientStNext(..))
+import Cardano.Api (AsType(AsHash, AsBlockHeader), Block(..), BlockHeader(..), BlockInMode(..), CardanoMode, ChainPoint(..), ChainTip, ConsensusModeParams, EraInMode(..), IsCardanoEra, LocalNodeClientProtocols(..), LocalChainSyncClient(..), LocalNodeConnectInfo(..), NetworkId, ScriptHash, ShelleyBasedEra(..), SimpleScript, SimpleScriptV2, SlotNo(..), TxBody(..), TxBodyContent(..), TxId, TxIn(..), TxIx(..), TxOut(..), connectToLocalNode, deserialiseFromRawBytesHex, getTxBody, getTxId, serialiseToRawBytesHex)
+import Cardano.Api.ChainSync.Client (ChainSyncClient(..), ClientStIdle(..), ClientStIntersect(..), ClientStNext(..))
 import Cardano.Api.Shelley          (TxBody(ShelleyTxBody))
 import Control.Monad.Extra          (whenJust)
 import Control.Monad.IO.Class       (MonadIO, liftIO)
-import Data.Maybe                   (catMaybes)
+import Data.Maybe                   (catMaybes, fromMaybe)
+import Data.Word                    (Word64)
 import Mantra.Chain.Internal        (interpretAsScript)
 import Mantra.Types                 (MantraM)
+import System.Directory             (doesFileExist, renameFile)
+import Text.Read                    (readMaybe)
 
+import qualified Data.ByteString.Char8              as BS           (pack, unpack)
 import qualified Cardano.Ledger.Crypto              as Ledger       (StandardCrypto)
 import qualified Cardano.Ledger.Alonzo.Scripts      as LedgerAlonzo (Script(..))
 import qualified Cardano.Ledger.ShelleyMA.Timelocks as ShelleyMA    (Timelock)
+
+
+-- | A point on the chain.
+data SavedPoint =
+  SavedPoint
+  {
+    slotNo    :: Word64 -- ^ The slot number.
+  , blockHash :: String -- ^ The block hash.
+  }
+    deriving (Eq, Ord, Read, Show)
+
+
+-- | Record the point on the chain.
+type Recorder =  BlockInMode CardanoMode -- ^ The block.
+              -> IO ()                   -- ^ Action to record the point.
+
+
+-- | Record the point on the chain into a file.
+savePoint :: Maybe FilePath   -- ^ The file in which to record the point, if any.
+          -> BlockInMode mode -- ^ The block.
+          -> IO ()            -- ^ Action to record the point in the file.
+savePoint (Just filename) (BlockInMode (Block (BlockHeader (SlotNo slotNo) blockHash' _) _) _) =
+  do
+    let
+      filename' = filename ++ ".tmp"
+    writeFile filename'
+      . show
+      . SavedPoint slotNo
+      $ BS.unpack
+      $ serialiseToRawBytesHex blockHash'
+    renameFile filename' filename
+savePoint Nothing _ = return ()
+
+
+-- | Set the point on the chain.
+loadPoint :: Maybe FilePath -- ^ The file in which the point is recorded, if any.
+          -> IO ChainPoint  -- ^ Action to read the point, if possible.
+loadPoint (Just filename) =
+  do
+    exists <- doesFileExist filename
+    point <-
+      if exists
+        then readMaybe <$> readFile filename
+        else return Nothing
+    return
+      . fromMaybe ChainPointAtGenesis
+      $ do
+        SavedPoint{..} <- point
+        blockHash' <- deserialiseFromRawBytesHex (AsHash AsBlockHeader) $ BS.pack blockHash
+        return
+          $ ChainPoint (SlotNo slotNo) blockHash'
+loadPoint Nothing = return ChainPointAtGenesis
 
 
 -- | Process a block.
@@ -68,17 +129,19 @@ walkBlocks :: MonadIO m
            => FilePath                        -- ^ The path to the node's socket.
            -> ConsensusModeParams CardanoMode -- ^ The consensus mode.
            -> NetworkId                       -- ^ The network.
+           -> ChainPoint                      -- ^ The starting point.
+           -> Recorder                        -- ^ Handle chain points.
            -> IdleNotifier                    -- ^ Handle idleness.
            -> Maybe Reverter                  -- ^ Handle rollbacks.
            -> Processor                       -- ^ Handle blocks.
            -> MantraM m ()                    -- ^ Action to walk the blockchain.
-walkBlocks socketPath mode network notifyIdle revertPoint processBlock =
+walkBlocks socketPath mode network start record notifyIdle revertPoint processBlock =
   let
     localNodeConnInfo = LocalNodeConnectInfo mode network socketPath
     protocols =
       LocalNodeClientProtocols
       {
-        localChainSyncClient    = LocalChainSyncClient $ client notifyIdle revertPoint processBlock
+        localChainSyncClient    = LocalChainSyncClient $ client start record notifyIdle revertPoint processBlock
       , localTxSubmissionClient = Nothing
       , localStateQueryClient   = Nothing
       }
@@ -88,13 +151,23 @@ walkBlocks socketPath mode network notifyIdle revertPoint processBlock =
 
 
 -- | Chain synchronization client.
-client :: IdleNotifier                                                        -- ^ Handle idleness.
+client :: ChainPoint                                                          -- ^ Starting point.
+       -> Recorder                                                            -- ^ Handle chain points.
+       -> IdleNotifier                                                        -- ^ Handle idleness.
        -> Maybe Reverter                                                      -- ^ Handle rollbacks.
        -> Processor                                                           -- ^ Handle blocks.
        -> ChainSyncClient (BlockInMode CardanoMode) ChainPoint ChainTip IO () -- ^ The chain synchronization client.
-client notifyIdle revertPoint processBlock =
+client start record notifyIdle revertPoint processBlock =
   ChainSyncClient
     $ let
+        clientStart =
+          return
+            .  SendMsgFindIntersect [start]
+            $ ClientStIntersect
+              {
+                recvMsgIntersectFound    = \ _ _ -> ChainSyncClient clientStIdle
+              , recvMsgIntersectNotFound = \_    -> ChainSyncClient clientStIdle
+              }
         clientStIdle =
           return
             . SendMsgRequestNext clientStNext
@@ -106,9 +179,10 @@ client notifyIdle revertPoint processBlock =
         clientStNext =
           ClientStNext
           {
-            recvMsgRollForward  = \block tip -> ChainSyncClient $ processBlock block tip
+            recvMsgRollForward  = \block tip -> ChainSyncClient $ record block
+                                                                >> processBlock block tip
                                                                 >> clientStIdle
-          , recvMsgRollBackward = \point tip -> ChainSyncClient $ whenJust revertPoint (\f -> f point tip)
+          , recvMsgRollBackward = \point tip -> ChainSyncClient $  whenJust revertPoint (\f -> f point tip)
                                                                 >> clientStIdle
           }
         clientDone =
@@ -119,7 +193,7 @@ client notifyIdle revertPoint processBlock =
               , recvMsgRollBackward = \_ _ -> ChainSyncClient . pure $ SendMsgDone ()
               }
      in
-      clientStIdle
+      clientStart
 
 
 -- | Process a script.
@@ -135,11 +209,13 @@ extractScripts :: MonadIO m
                => FilePath                        -- ^ Path to the node's socket.
                -> ConsensusModeParams CardanoMode -- ^ Consensus mode.
                -> NetworkId                       -- ^ The network.
+               -> ChainPoint                      -- ^ The starting point.
+               -> Recorder                        -- ^ Handle chain points.
                -> IdleNotifier                    -- ^ Handle idleness.
                -> ScriptHandler                   -- ^ Handle a script.
                -> MantraM m ()                    -- ^ Action to extract scripts.
-extractScripts socketPath mode network notifyIdle handler =
-  walkBlocks socketPath mode network notifyIdle Nothing
+extractScripts socketPath mode network start record notifyIdle handler =
+  walkBlocks socketPath mode network start record notifyIdle Nothing
     $ processScripts handler
 
 
@@ -205,14 +281,16 @@ watchTransactions :: MonadIO m
                   => FilePath                        -- ^ Path to the node's socket.
                   -> ConsensusModeParams CardanoMode -- ^ The consensus mode.
                   -> NetworkId                       -- ^ The network.
+                  -> ChainPoint                      -- ^ The starting point.
+                  -> Recorder                        -- ^ Handle chain points.
                   -> Maybe Reverter                  -- ^ Handle rollbacks.
                   -> IdleNotifier                    -- ^ Handle idleness.
                   -> BlockHandler                    -- ^ Handle blocks.
                   -> TxInHandler                     -- ^ Handle spent UTxOs.
                   -> TxOutHandler                    -- ^ Handle transaction output.
                   -> MantraM m ()                    -- ^ Action to watch transactions.
-watchTransactions socketPath mode network revertPoint notifyIdle blockHandler inHandler outHandler =
-  walkBlocks socketPath mode network notifyIdle revertPoint
+watchTransactions socketPath mode network start record revertPoint notifyIdle blockHandler inHandler outHandler =
+  walkBlocks socketPath mode network start record notifyIdle revertPoint
     $ processTransactions blockHandler inHandler outHandler
 
 

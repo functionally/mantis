@@ -13,7 +13,7 @@ import Cardano.Api (BlockHeader(..), ConsensusModeParams(CardanoModeParams), Epo
 import Control.Monad.Extra (whenJust)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson.Encode.Pretty (encodePretty)
-import Mantra.Chain (extractScripts)
+import Mantra.Chain (extractScripts, loadPoint, savePoint)
 import Mantra.Command.Types (Configuration(..), Mantra(..))
 import Mantra.Types (MantraM)
 import System.FilePath ((</>))
@@ -38,9 +38,10 @@ command' =
 options :: O.Parser Mantra
 options =
   Chain
-    <$>             O.strArgument   (                                       O.metavar "CONFIG_FILE" <> O.help "Path to configuration file."                                      )
-    <*> O.optional (O.strOption     $                 O.long "output"    <> O.metavar "OUTPUT_DIR"  <> O.help "Output directory for script files."                               )
-    <*> O.switch   (                                  O.long "continue"  <>                            O.help "Whether to continue when the current tip of the chain is reached.")
+    <$>             O.strArgument (                      O.metavar "CONFIG_FILE" <> O.help "Path to configuration file."                                      )
+    <*> O.optional (O.strOption   $ O.long "output"   <> O.metavar "OUTPUT_DIR"  <> O.help "Output directory for script files."                               )
+    <*> O.switch   (                O.long "continue"                            <> O.help "Whether to continue when the current tip of the chain is reached.")
+    <*> O.optional (O.strOption   $ O.long "restart"  <> O.metavar "POINT_FILE"  <> O.help "File for restoring and saving current point on the chain."        )
 
 
 main :: MonadFail m
@@ -49,10 +50,12 @@ main :: MonadFail m
      -> FilePath
      -> Maybe FilePath
      -> Bool
+     -> Maybe FilePath
      -> MantraM m ()
-main debugIO configFile output continue =
+main debugIO configFile output continue pointFile =
   do
     Configuration{..} <- liftIO $ read <$> readFile configFile
+    start <- liftIO $ loadPoint pointFile
 
     let
       protocol = CardanoModeParams $ EpochSlots epochSlots
@@ -60,7 +63,7 @@ main debugIO configFile output continue =
     liftIO $ debugIO ""
     liftIO . debugIO $ "Network: " ++ show network
 
-    extractScripts socketPath protocol network (return $ not continue)
+    extractScripts socketPath protocol network start (savePoint pointFile) (return $ not continue)
       $ \(BlockHeader slotNo _ _) txId hash script ->
         do
           let
