@@ -91,9 +91,9 @@ main version asEra sbe =
           InfoTx{..}       -> Info.mainTx asEra printer txFiles
           Bech32Decode{..} -> Bech32.mainDecode printer bech32
           Bech32Encode{..} -> Bech32.mainEncode printer humanReadablePart dataPart
-          Chain{..}        -> Chain.main printer' configFile outputDirectory continue
-          WatchAddress{..} -> Watch.mainAddress printer' configFile addresses continue
-          WatchCoin{..}    -> Watch.mainCoin printer' configFile policyId assetName' continue
+          Chain{..}        -> Chain.main printer' configFile outputDirectory continue pointFile
+          WatchAddress{..} -> Watch.mainAddress printer' configFile addresses continue pointFile
+          WatchCoin{..}    -> Watch.mainCoin printer' configFile policyId assetName' continue pointFile
     case result of
       Right () -> return ()
       Left e   -> hPutStrLn stderr e >> exitFailure

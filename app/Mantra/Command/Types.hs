@@ -84,12 +84,14 @@ data Mantra =
       configFile      :: FilePath
     , outputDirectory :: Maybe FilePath
     , continue        :: Bool
+    , pointFile       :: Maybe FilePath
     }
   | WatchAddress
     {
       configFile  :: FilePath
     , addresses   :: [String]
     , continue    :: Bool
+    , pointFile   :: Maybe FilePath
     }
   | WatchCoin
     {
@@ -97,5 +99,6 @@ data Mantra =
     , policyId   :: String
     , assetName' :: Maybe String
     , continue   :: Bool
+    , pointFile  :: Maybe FilePath
     }
     deriving (Eq, Ord, Read, Show)
