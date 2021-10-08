@@ -17,8 +17,8 @@ If the `--restart` flag, followed by a filename, is used, then the program will 
 	  --output OUTPUT_DIR      Output directory for script files.
 	  --continue               Whether to continue when the current tip of the chain
 	                           is reached.
-          --restart POINT_FILE     File for restoring and saving current point on the
-                                   chain.
+	  --restart POINT_FILE     File for restoring and saving current point on the
+	                           chain.
 	  -h,--help                Show this help text
 
 
@@ -34,8 +34,8 @@ If the `--restart` flag, followed by a filename, is used, then the program will 
 	  ADDRESS                  Shelley address.
 	  --continue               Whether to continue when the current tip of the chain
 	                           is reached.
-          --restart POINT_FILE     File for restoring and saving current point on the
-                                   chain.
+	  --restart POINT_FILE     File for restoring and saving current point on the
+	                           chain.
 	  -h,--help                Show this help text
 
 
@@ -52,6 +52,6 @@ If the `--restart` flag, followed by a filename, is used, then the program will 
 	  ASSET_NAME               Asset name for the token.
 	  --continue               Whether to continue when the current tip of the chain
 	                           is reached.
-          --restart POINT_FILE     File for restoring and saving current point on the
-                                   chain.
+	  --restart POINT_FILE     File for restoring and saving current point on the
+	                           chain.
 	  -h,--help                Show this help text
