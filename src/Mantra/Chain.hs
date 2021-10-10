@@ -26,11 +26,13 @@ module Mantra.Chain (
 , Reverter
 , IdleNotifier
 , ScriptHandler
+, PlutusHandler
 , TxInHandler
 , TxOutHandler
 -- * Activity
 , walkBlocks
 , extractScripts
+, extractPlutus
 , watchTransactions
 -- * Points
 , savePoint
@@ -40,7 +42,7 @@ module Mantra.Chain (
 
 import Cardano.Api (AsType(AsHash, AsBlockHeader), Block(..), BlockHeader(..), BlockInMode(..), CardanoMode, ChainPoint(..), ChainTip, ConsensusModeParams, EraInMode(..), IsCardanoEra, LocalNodeClientProtocols(..), LocalChainSyncClient(..), LocalNodeConnectInfo(..), NetworkId, ScriptHash, ShelleyBasedEra(..), SimpleScript, SimpleScriptV2, SlotNo(..), TxBody(..), TxBodyContent(..), TxId, TxIn(..), TxIx(..), TxOut(..), connectToLocalNode, deserialiseFromRawBytesHex, getTxBody, getTxId, serialiseToRawBytesHex)
 import Cardano.Api.ChainSync.Client (ChainSyncClient(..), ClientStIdle(..), ClientStIntersect(..), ClientStNext(..))
-import Cardano.Api.Shelley          (TxBody(ShelleyTxBody))
+import Cardano.Api.Shelley          (PlutusScript(..), PlutusScriptV1, TxBody(ShelleyTxBody))
 import Control.Monad.Extra          (whenJust)
 import Control.Monad.IO.Class       (MonadIO, liftIO)
 import Data.Maybe                   (catMaybes, fromMaybe)
@@ -196,7 +198,7 @@ client start record notifyIdle revertPoint processBlock =
       clientStart
 
 
--- | Process a script.
+-- | Process a simple script.
 type ScriptHandler =  BlockHeader                 -- ^ The block header.
                    -> TxId                        -- ^ The transaction identifier.
                    -> ScriptHash                  -- ^ The script's hash.
@@ -204,7 +206,7 @@ type ScriptHandler =  BlockHeader                 -- ^ The block header.
                    -> IO ()                       -- ^ Action to process the script.
 
 
--- | Extract scripts from the blockchain.
+-- | Extract simple scripts from the blockchain.
 extractScripts :: MonadIO m
                => FilePath                        -- ^ Path to the node's socket.
                -> ConsensusModeParams CardanoMode -- ^ Consensus mode.
@@ -219,7 +221,7 @@ extractScripts socketPath mode network start record notifyIdle handler =
     $ processScripts handler
 
 
--- | Process scripts.
+-- | Process simple scripts.
 processScripts :: ScriptHandler           -- ^ Handle a script.
                -> BlockInMode CardanoMode -- ^ The block.
                -> ChainTip                -- ^ The chain tip.
@@ -227,17 +229,17 @@ processScripts :: ScriptHandler           -- ^ Handle a script.
 processScripts handler (BlockInMode (Block header txs) _) _ =
   sequence_
     [
-      whenJust (interpretAsScript witness)
-        $ \(script, hash) -> handler header txId hash script
+      handler header txId hash script
     |
       tx <- txs
     , let body = getTxBody tx
     , let txId = getTxId body
     , witness <- extractTimelocks body
+    , let (script, hash) = interpretAsScript witness
     ]
 
 
--- | Extract the time-lock scripts from a transaction body.
+-- | Extract the simple scripts from a transaction body.
 extractTimelocks :: TxBody era                                 -- ^ The transaction body.
                  -> [ShelleyMA.Timelock Ledger.StandardCrypto] -- ^ The time-lock scripts.
 extractTimelocks (ShelleyTxBody ShelleyBasedEraAllegra _ witnesses _ _ _) = witnesses
@@ -252,6 +254,64 @@ extractTimelocks (ShelleyTxBody ShelleyBasedEraAlonzo  _ witnesses _ _ _) =
       witness <- witnesses
     ]
 extractTimelocks _ = []
+
+
+-- | Process a Plutus script.
+type PlutusHandler =  BlockHeader                 -- ^ The block header.
+                   -> TxId                        -- ^ The transaction identifier.
+                   -> ScriptHash                  -- ^ The script's hash.
+                   -> PlutusScript PlutusScriptV1 -- ^ The script.
+                   -> IO ()                       -- ^ Action to process the script.
+
+
+-- | Extract Plutus scripts from the blockchain.
+extractPlutus :: MonadIO m
+              => FilePath                        -- ^ Path to the node's socket.
+              -> ConsensusModeParams CardanoMode -- ^ Consensus mode.
+              -> NetworkId                       -- ^ The network.
+              -> ChainPoint                      -- ^ The starting point.
+              -> Recorder                        -- ^ Handle chain points.
+              -> IdleNotifier                    -- ^ Handle idleness.
+              -> PlutusHandler                   -- ^ Handle a script.
+              -> MantraM m ()                    -- ^ Action to extract scripts.
+extractPlutus socketPath mode network start record notifyIdle handler =
+  walkBlocks socketPath mode network start record notifyIdle Nothing
+    $ processPlutus handler
+
+
+-- | Process Plutus scripts.
+processPlutus :: PlutusHandler           -- ^ Handle a script.
+              -> BlockInMode CardanoMode -- ^ The block.
+              -> ChainTip                -- ^ The chain tip.
+              -> IO ()                   -- ^ Action to process script.
+processPlutus handler (BlockInMode (Block header txs) _) _ =
+  sequence_
+    [
+      let
+        hash = undefined -- FIXME: Compute hash!
+      in
+        handler header txId hash script
+    |
+      tx <- txs
+    , let body = getTxBody tx
+    , let txId = getTxId body
+    , script <- extractPlutuses body
+    ]
+
+
+-- | Extract the Plutus scripts from a transaction body.
+extractPlutuses :: TxBody era                                 -- ^ The transaction body.
+                -> [PlutusScript PlutusScriptV1] -- ^ The plutus scripts.
+extractPlutuses (ShelleyTxBody ShelleyBasedEraAlonzo  _ witnesses _ _ _) =
+  catMaybes
+    [
+     case witness of
+       LedgerAlonzo.PlutusScript witness' -> Just $ PlutusScriptSerialised witness'
+       _                                  -> Nothing
+    |
+      witness <- witnesses
+    ]
+extractPlutuses _ = []
 
 
 -- | Process a block.
