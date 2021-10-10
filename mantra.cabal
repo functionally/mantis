@@ -2,7 +2,7 @@ cabal-version: >= 1.10
 
 name              : mantra
 description       : This tool provides several script-oriented utilities for the Cardano blockchain. In particular, it posts metadata or mints/burns tokens. It can also generate scripts, compute script addresses, compute the fingerprint of a token, and download scripts.
-version           : 0.5.0.0
+version           : 0.5.1.0
 license           : MIT
 license-file      : LICENSE
 author            : Brian W Bush
@@ -14,7 +14,6 @@ extra-source-files: ReadMe.md
 library
   exposed-modules : Mantra.Asset
                     Mantra.Chain
-                    Mantra.Chain.Internal
                     Mantra.Query
                     Mantra.Script
                     Mantra.Transaction
@@ -34,6 +33,7 @@ library
                   , cryptonite
                   , directory
                   , extra
+                  , flat
                   , filepath
                   , memory
                   , mtl
