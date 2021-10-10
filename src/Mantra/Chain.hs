@@ -26,13 +26,11 @@ module Mantra.Chain (
 , Reverter
 , IdleNotifier
 , ScriptHandler
-, PlutusHandler
 , TxInHandler
 , TxOutHandler
 -- * Activity
 , walkBlocks
 , extractScripts
-, extractPlutus
 , watchTransactions
 -- * Points
 , savePoint
@@ -40,21 +38,21 @@ module Mantra.Chain (
 ) where
 
 
-import Cardano.Api (AsType(AsHash, AsBlockHeader), Block(..), BlockHeader(..), BlockInMode(..), CardanoMode, ChainPoint(..), ChainTip, ConsensusModeParams, EraInMode(..), IsCardanoEra, LocalNodeClientProtocols(..), LocalChainSyncClient(..), LocalNodeConnectInfo(..), NetworkId, ScriptHash, ShelleyBasedEra(..), SimpleScript, SimpleScriptV2, SlotNo(..), TxBody(..), TxBodyContent(..), TxId, TxIn(..), TxIx(..), TxOut(..), connectToLocalNode, deserialiseFromRawBytesHex, getTxBody, getTxId, serialiseToRawBytesHex)
+import Cardano.Api                  (AsType(AsHash, AsBlockHeader), Block(..), BlockHeader(..), BlockInMode(..), CardanoMode, ChainPoint(..), ChainTip, ConsensusModeParams, EraInMode(..), IsCardanoEra, LocalNodeClientProtocols(..), LocalChainSyncClient(..), LocalNodeConnectInfo(..), NetworkId, Script(..), ScriptInAnyLang(..), ScriptHash, ScriptLanguage(..), ShelleyBasedEra(..), SlotNo(..), TimeLocksSupported(..), TxBody(..), TxBodyContent(..), TxId, TxIn(..), TxIx(..), TxOut(..), connectToLocalNode, deserialiseFromRawBytesHex, getTxBody, getTxId, serialiseToRawBytesHex)
 import Cardano.Api.ChainSync.Client (ChainSyncClient(..), ClientStIdle(..), ClientStIntersect(..), ClientStNext(..))
-import Cardano.Api.Shelley          (PlutusScript(..), PlutusScriptV1, TxBody(ShelleyTxBody))
+import Cardano.Api.Shelley          (fromAllegraTimelock, hashScript, PlutusScript(..), PlutusScriptVersion(..), SimpleScriptVersion(..), TxBody(ShelleyTxBody))
 import Control.Monad.Extra          (whenJust)
 import Control.Monad.IO.Class       (MonadIO, liftIO)
-import Data.Maybe                   (catMaybes, fromMaybe)
+import Data.ByteString.Short        (ShortByteString)
+import Data.Maybe                   (fromMaybe)
 import Data.Word                    (Word64)
-import Mantra.Chain.Internal        (interpretAsScript)
 import Mantra.Types                 (MantraM)
 import System.Directory             (doesFileExist, renameFile)
 import Text.Read                    (readMaybe)
 
 import qualified Data.ByteString.Char8              as BS           (pack, unpack)
-import qualified Cardano.Ledger.Crypto              as Ledger       (StandardCrypto)
 import qualified Cardano.Ledger.Alonzo.Scripts      as LedgerAlonzo (Script(..))
+import qualified Cardano.Ledger.Crypto              as Ledger       (StandardCrypto)
 import qualified Cardano.Ledger.ShelleyMA.Timelocks as ShelleyMA    (Timelock)
 
 
@@ -198,12 +196,12 @@ client start record notifyIdle revertPoint processBlock =
       clientStart
 
 
--- | Process a simple script.
-type ScriptHandler =  BlockHeader                 -- ^ The block header.
-                   -> TxId                        -- ^ The transaction identifier.
-                   -> ScriptHash                  -- ^ The script's hash.
-                   -> SimpleScript SimpleScriptV2 -- ^ The script.
-                   -> IO ()                       -- ^ Action to process the script.
+-- | Process a script.
+type ScriptHandler =  BlockHeader     -- ^ The block header.
+                   -> TxId            -- ^ The transaction identifier.
+                   -> ScriptHash      -- ^ The script's hash.
+                   -> ScriptInAnyLang -- ^ The script.
+                   -> IO ()           -- ^ Action to process the script.
 
 
 -- | Extract simple scripts from the blockchain.
@@ -234,84 +232,50 @@ processScripts handler (BlockInMode (Block header txs) _) _ =
       tx <- txs
     , let body = getTxBody tx
     , let txId = getTxId body
-    , witness <- extractTimelocks body
-    , let (script, hash) = interpretAsScript witness
+    , (script, hash) <- findScripts body
     ]
 
 
--- | Extract the simple scripts from a transaction body.
-extractTimelocks :: TxBody era                                 -- ^ The transaction body.
-                 -> [ShelleyMA.Timelock Ledger.StandardCrypto] -- ^ The time-lock scripts.
-extractTimelocks (ShelleyTxBody ShelleyBasedEraAllegra _ witnesses _ _ _) = witnesses
-extractTimelocks (ShelleyTxBody ShelleyBasedEraMary    _ witnesses _ _ _) = witnesses
-extractTimelocks (ShelleyTxBody ShelleyBasedEraAlonzo  _ witnesses _ _ _) =
-  catMaybes
-    [
-     case witness of
-       LedgerAlonzo.TimelockScript witness' -> Just witness'
-       _                                    -> Nothing
-    |
-      witness <- witnesses
-    ]
-extractTimelocks _ = []
+-- | Extract the scripts from a transaction body.
+findScripts :: TxBody era                      -- ^ The transaction body.
+            -> [(ScriptInAnyLang, ScriptHash)] -- ^ The scripts.
+findScripts (ShelleyTxBody ShelleyBasedEraAllegra _ witnesses _ _ _) = interpretSimpleScript <$> witnesses
+findScripts (ShelleyTxBody ShelleyBasedEraMary    _ witnesses _ _ _) = interpretSimpleScript <$> witnesses
+findScripts (ShelleyTxBody ShelleyBasedEraAlonzo  _ witnesses _ _ _) =
+  [
+   case witness of
+     LedgerAlonzo.TimelockScript witness' -> interpretSimpleScript witness'
+     LedgerAlonzo.PlutusScript   witness' -> interpretPlutusScript witness'
+  |
+    witness <- witnesses
+  ]
+findScripts _ = []
 
 
--- | Process a Plutus script.
-type PlutusHandler =  BlockHeader                 -- ^ The block header.
-                   -> TxId                        -- ^ The transaction identifier.
-                   -> ScriptHash                  -- ^ The script's hash.
-                   -> PlutusScript PlutusScriptV1 -- ^ The script.
-                   -> IO ()                       -- ^ Action to process the script.
+-- | Interpret a witness as a simple script.
+interpretSimpleScript :: ShelleyMA.Timelock Ledger.StandardCrypto -- ^ The witness.
+                      -> (ScriptInAnyLang, ScriptHash)            -- ^ The simple script and its hash.
+interpretSimpleScript witness =
+  let
+    script = SimpleScript SimpleScriptV2 $ fromAllegraTimelock TimeLocksInSimpleScriptV2 witness
+  in
+    (
+      ScriptInAnyLang (SimpleScriptLanguage SimpleScriptV2) script
+    , hashScript script
+    )
 
 
--- | Extract Plutus scripts from the blockchain.
-extractPlutus :: MonadIO m
-              => FilePath                        -- ^ Path to the node's socket.
-              -> ConsensusModeParams CardanoMode -- ^ Consensus mode.
-              -> NetworkId                       -- ^ The network.
-              -> ChainPoint                      -- ^ The starting point.
-              -> Recorder                        -- ^ Handle chain points.
-              -> IdleNotifier                    -- ^ Handle idleness.
-              -> PlutusHandler                   -- ^ Handle a script.
-              -> MantraM m ()                    -- ^ Action to extract scripts.
-extractPlutus socketPath mode network start record notifyIdle handler =
-  walkBlocks socketPath mode network start record notifyIdle Nothing
-    $ processPlutus handler
-
-
--- | Process Plutus scripts.
-processPlutus :: PlutusHandler           -- ^ Handle a script.
-              -> BlockInMode CardanoMode -- ^ The block.
-              -> ChainTip                -- ^ The chain tip.
-              -> IO ()                   -- ^ Action to process script.
-processPlutus handler (BlockInMode (Block header txs) _) _ =
-  sequence_
-    [
-      let
-        hash = undefined -- FIXME: Compute hash!
-      in
-        handler header txId hash script
-    |
-      tx <- txs
-    , let body = getTxBody tx
-    , let txId = getTxId body
-    , script <- extractPlutuses body
-    ]
-
-
--- | Extract the Plutus scripts from a transaction body.
-extractPlutuses :: TxBody era                                 -- ^ The transaction body.
-                -> [PlutusScript PlutusScriptV1] -- ^ The plutus scripts.
-extractPlutuses (ShelleyTxBody ShelleyBasedEraAlonzo  _ witnesses _ _ _) =
-  catMaybes
-    [
-     case witness of
-       LedgerAlonzo.PlutusScript witness' -> Just $ PlutusScriptSerialised witness'
-       _                                  -> Nothing
-    |
-      witness <- witnesses
-    ]
-extractPlutuses _ = []
+-- | Interpret a witness as a Plutus script.
+interpretPlutusScript :: ShortByteString               -- ^ The witness.
+                      -> (ScriptInAnyLang, ScriptHash) -- ^ The Plutus script and its hash.
+interpretPlutusScript witness =
+  let
+    script = PlutusScript PlutusScriptV1 $ PlutusScriptSerialised witness
+  in
+    (
+      ScriptInAnyLang (PlutusScriptLanguage PlutusScriptV1) script
+    , hashScript script
+    )
 
 
 -- | Process a block.

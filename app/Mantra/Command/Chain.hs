@@ -1,4 +1,5 @@
 
+{-# LANGUAGE GADTs           #-}
 {-# LANGUAGE RecordWildCards #-}
 
 
@@ -9,7 +10,8 @@ module Mantra.Command.Chain (
 ) where
 
 
-import Cardano.Api (BlockHeader(..), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), serialiseToRawBytesHex)
+import Cardano.Api (BlockHeader(..), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), PlutusScriptVersion(..), Script(..), ScriptInAnyLang(..), ScriptLanguage(..), serialiseToRawBytesHex, writeFileTextEnvelope)
+import Control.Monad (void)
 import Control.Monad.Extra (whenJust)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson.Encode.Pretty (encodePretty)
@@ -26,7 +28,7 @@ import qualified Options.Applicative   as O
 command :: O.Mod O.CommandFields Mantra
 command =
   O.command "watch-scripts"
-    $ O.info options (O.progDesc "Download scripts used as transaction witnesses.")
+    $ O.info options (O.progDesc "Download simple and Plutus scripts used as transaction witnesses.")
 
 
 command' :: O.Mod O.CommandFields Mantra
@@ -70,10 +72,16 @@ main debugIO configFile output continue pointFile =
             hash' = BS.unpack $ serialiseToRawBytesHex hash
           debugIO ""
           debugIO $ show slotNo
-          debugIO $ show txId
+          debugIO $ "TxId " ++ show txId
           debugIO $ "Hash " ++ hash'
-          debugIO $ show script
+          debugIO
+            $ case script of
+                ScriptInAnyLang (SimpleScriptLanguage _) (SimpleScript _ script') -> show script
+                _                                                                 -> "<a Plutus script>"
           whenJust output
             $ \output' ->
-              LBS.writeFile (output' </> (hash' ++ ".json"))
-                $ encodePretty script
+              case script of
+                ScriptInAnyLang (SimpleScriptLanguage _) (SimpleScript _ script') ->
+                  LBS.writeFile (output' </> (hash' ++ ".json")) $ encodePretty script'
+                ScriptInAnyLang (PlutusScriptLanguage _) (PlutusScript PlutusScriptV1 script') ->
+                  void $ writeFileTextEnvelope (output' </> (hash' ++ ".plutus")) Nothing script'

@@ -36,7 +36,7 @@ Please post questions and issues [here](https://github.com/functionally/mantra/i
 	  transact                 Submit Cardano metadata or mint Cardano tokens.
 	  watch-address            Watch transactions at an address.
 	  watch-coin               Watch transactions for a coin.
-	  watch-scripts            Download scripts used as transaction witnesses.
+	  watch-scripts            Download simple and Plutus scripts used as transaction witnesses.
 
 *   [Mint batches of Cardano non-fungible tokens](man/mint.md)
     *   `mantra mint`
