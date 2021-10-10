@@ -76,7 +76,7 @@ main debugIO configFile output continue pointFile =
           debugIO $ "Hash " ++ hash'
           debugIO
             $ case script of
-                ScriptInAnyLang (SimpleScriptLanguage _) (SimpleScript _ script') -> show script
+                ScriptInAnyLang (SimpleScriptLanguage _) (SimpleScript _ script') -> show script'
                 _                                                                 -> "<a Plutus script>"
           whenJust output
             $ \output' ->
