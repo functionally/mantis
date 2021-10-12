@@ -6,9 +6,9 @@ module Mantra.Command.Fingerprint (
 
 
 import Control.Monad.IO.Class (MonadIO)
-import Mantra.Asset (assetFingerprintString)
-import Mantra.Command.Types (Mantra(Fingerprint))
-import Mantra.Types (MantraM, printMantra)
+import Mantra.Asset           (assetFingerprintString)
+import Mantra.Command.Types   (Mantra(Fingerprint))
+import Mantra.Types           (MantraM, printMantra)
 
 import qualified Options.Applicative as O
 import qualified Data.Text           as T (unpack)

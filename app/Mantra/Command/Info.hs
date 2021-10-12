@@ -11,14 +11,14 @@ module Mantra.Command.Info (
 ) where
 
 
-import Cardano.Api (AsType(AsTx, AsTxBody), ConsensusModeParams(CardanoModeParams), EpochSlots(..), IsCardanoEra, NetworkId(..), NetworkMagic(..), ShelleyBasedEra, getTxBody, getTxId, readFileTextEnvelope)
-import Control.Monad (forM_)
+import Cardano.Api            (AsType(AsAllegraEra, AsAlonzoEra, AsByronEra, AsMaryEra, AsShelleyEra, AsTx, AsTxBody), ConsensusModeParams(CardanoModeParams), EpochSlots(..), FromSomeType(..), IsCardanoEra, NetworkId(..), NetworkMagic(..), ShelleyBasedEra, getTxBody, getTxId, readFileTextEnvelopeAnyOf)
+import Control.Monad          (forM_)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Mantra.Command.Types (Configuration(..), Mantra(InfoAddress, InfoTx, InfoTxBody, InfoUtxo))
-import Mantra.Query (queryUTxO)
-import Mantra.Transaction (printUTxO)
-import Mantra.Types (MantraM, foistMantraEitherIO, printMantra)
-import Mantra.Wallet (readAddress)
+import Mantra.Command.Types   (Configuration(..), Mantra(InfoAddress, InfoTx, InfoTxBody, InfoUtxo))
+import Mantra.Query           (queryUTxO)
+import Mantra.Transaction     (printUTxO)
+import Mantra.Types           (MantraM, foistMantraEitherIO, printMantra)
+import Mantra.Wallet          (readAddress)
 
 import qualified Options.Applicative as O
 
@@ -101,39 +101,51 @@ mainAddress _ addresses =
         printMantra $ "  " ++ show address'
 
 
-mainTxBody :: IsCardanoEra era
-           => MonadIO m
-           => AsType era
-           -> (String -> MantraM m ())
+mainTxBody :: MonadIO m
+           => (String -> MantraM m ())
            -> [FilePath]
            -> MantraM m ()
-mainTxBody asEra _ txBodyFiles =
+mainTxBody _ txBodyFiles =
   forM_ txBodyFiles
       $ \file ->
         do
           printMantra ""
           printMantra $ "Transaction body file: " ++ file
-          txBody <-
+          (txId, txBody) <-
             foistMantraEitherIO
-              $ readFileTextEnvelope (AsTxBody asEra) file
-          printMantra . show $ getTxId txBody
-          printMantra $ show txBody
+              $ readFileTextEnvelopeAnyOf
+                [
+                  FromSomeType (AsTxBody AsAlonzoEra ) $ \txBody -> (show $ getTxId txBody, show txBody)
+                , FromSomeType (AsTxBody AsMaryEra   ) $ \txBody -> (show $ getTxId txBody, show txBody)
+                , FromSomeType (AsTxBody AsAllegraEra) $ \txBody -> (show $ getTxId txBody, show txBody)
+                , FromSomeType (AsTxBody AsShelleyEra) $ \txBody -> (show $ getTxId txBody, show txBody)
+                , FromSomeType (AsTxBody AsByronEra  ) $ \txBody -> (show $ getTxId txBody, show txBody)
+                ]
+                file
+          printMantra txId
+          printMantra txBody
 
 
-mainTx :: IsCardanoEra era
-       => MonadIO m
-       => AsType era
-       -> (String -> MantraM m ())
+mainTx :: MonadIO m
+       => (String -> MantraM m ())
        -> [FilePath]
        -> MantraM m ()
-mainTx asEra _ txFiles =
+mainTx _ txFiles =
   forM_ txFiles
       $ \file ->
         do
           printMantra ""
           printMantra $ "Transaction file: " ++ file
-          tx <-
+          (txId, tx) <-
             foistMantraEitherIO
-              $ readFileTextEnvelope (AsTx asEra) file
-          printMantra . show . getTxId $ getTxBody tx
-          printMantra $ show tx
+              $ readFileTextEnvelopeAnyOf
+                [
+                  FromSomeType (AsTx AsAlonzoEra ) $ \tx -> (show . getTxId $ getTxBody tx, show tx)
+                , FromSomeType (AsTx AsMaryEra   ) $ \tx -> (show . getTxId $ getTxBody tx, show tx)
+                , FromSomeType (AsTx AsAllegraEra) $ \tx -> (show . getTxId $ getTxBody tx, show tx)
+                , FromSomeType (AsTx AsShelleyEra) $ \tx -> (show . getTxId $ getTxBody tx, show tx)
+                , FromSomeType (AsTx AsByronEra  ) $ \tx -> (show . getTxId $ getTxBody tx, show tx)
+                ]
+                file
+          printMantra txId
+          printMantra tx

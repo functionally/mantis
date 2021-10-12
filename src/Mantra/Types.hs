@@ -40,13 +40,13 @@ module Mantra.Types (
 ) where
 
 
-import Control.Arrow (first)
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Except (MonadError)
-import Control.Monad.Trans (MonadTrans, lift)
-import Control.Monad.Trans.Except (ExceptT(..), runExceptT, throwE, withExceptT)
+import Control.Arrow                    (first)
+import Control.Monad.IO.Class           (MonadIO, liftIO)
+import Control.Monad.Except             (MonadError)
+import Control.Monad.Trans              (MonadTrans, lift)
+import Control.Monad.Trans.Except       (ExceptT(..), runExceptT, throwE, withExceptT)
 import Control.Monad.Trans.Except.Extra (hoistExceptT)
-import System.IO (hPutStrLn, stderr)
+import System.IO                        (hPutStrLn, stderr)
 
 
 -- | Mantra monad.

@@ -4,7 +4,7 @@ module Main (
 ) where
 
 
-import Cardano.Api  (AsType(..), ShelleyBasedEra(..))
+import Cardano.Api  (ShelleyBasedEra(..))
 import Paths_mantra (version)
 
 import qualified Mantra.Command as Mantra
@@ -14,5 +14,4 @@ main :: IO ()
 main =
   Mantra.main
     version
-    AsAlonzoEra
     ShelleyBasedEraAlonzo

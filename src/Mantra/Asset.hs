@@ -25,13 +25,13 @@ module Mantra.Asset (
 ) where
 
 
-import Cardano.Api (AssetId(..), AssetName(..), PolicyId(..), serialiseToRawBytes)
-import Codec.Binary.Bech32 (HumanReadablePart, dataPartFromBytes, encodeLenient, humanReadablePartFromText)
-import Crypto.Hash (hash)
+import Cardano.Api            (AssetId(..), AssetName(..), PolicyId(..), serialiseToRawBytes)
+import Codec.Binary.Bech32    (HumanReadablePart, dataPartFromBytes, encodeLenient, humanReadablePartFromText)
+import Crypto.Hash            (hash)
 import Crypto.Hash.Algorithms (Blake2b_160)
-import Data.ByteArray (convert)
-import Data.Text (Text)
-import Mantra.Types (MantraM, foistMantraEither, throwMantra)
+import Data.ByteArray         (convert)
+import Data.Text              (Text)
+import Mantra.Types           (MantraM, foistMantraEither, throwMantra)
 
 import qualified Data.ByteString.Char8  as BS     (ByteString, pack)
 import qualified Data.ByteString.Base16 as Base16 (decode)

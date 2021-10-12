@@ -29,10 +29,10 @@ module Mantra.Query (
 ) where
 
 
-import Cardano.Api (AddressAny, CardanoMode, ChainTip(..), ConsensusMode(CardanoMode), ConsensusModeParams, IsCardanoEra(..), IsShelleyBasedEra(..), LocalNodeConnectInfo(..), NetworkId, QueryInEra(QueryInShelleyBasedEra), QueryInMode(..), ShelleyBasedEra, SlotNo(..), Tx, TxInMode(..), TxValidationErrorInMode, getLocalChainTip, queryNodeLocalState, shelleyBasedToCardanoEra, submitTxToNodeLocal, toEraInMode)
-import Cardano.Api.Shelley (ProtocolParameters, QueryInShelleyBasedEra(..), QueryUTxOFilter(..), UTxO)
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Mantra.Types (MantraM, SlotRef(..), foistMantraEither, foistMantraEitherIO)
+import Cardano.Api                                       (AddressAny, CardanoMode, ChainTip(..), ConsensusMode(CardanoMode), ConsensusModeParams, IsCardanoEra(..), IsShelleyBasedEra(..), LocalNodeConnectInfo(..), NetworkId, QueryInEra(QueryInShelleyBasedEra), QueryInMode(..), ShelleyBasedEra, SlotNo(..), Tx, TxInMode(..), TxValidationErrorInMode, getLocalChainTip, queryNodeLocalState, shelleyBasedToCardanoEra, submitTxToNodeLocal, toEraInMode)
+import Cardano.Api.Shelley                               (ProtocolParameters, QueryInShelleyBasedEra(..), QueryUTxOFilter(..), UTxO)
+import Control.Monad.IO.Class                            (MonadIO, liftIO)
+import Mantra.Types                                      (MantraM, SlotRef(..), foistMantraEither, foistMantraEitherIO)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Type (SubmitResult)
 
 import qualified Data.Set as S (singleton)

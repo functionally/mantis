@@ -7,8 +7,8 @@ module Mantra.Command.Bech32 (
 
 
 import Control.Monad.IO.Class (MonadIO)
-import Mantra.Command.Types (Mantra(Bech32Decode, Bech32Encode))
-import Mantra.Types (MantraM, foistMantraEither, foistMantraMaybe, printMantra)
+import Mantra.Command.Types   (Mantra(Bech32Decode, Bech32Encode))
+import Mantra.Types           (MantraM, foistMantraEither, foistMantraMaybe, printMantra)
 
 import qualified Codec.Binary.Bech32    as Bech32 (dataPartFromBytes, dataPartToBytes, decodeLenient, encodeLenient, humanReadablePartFromText, humanReadablePartToText)
 import qualified Data.ByteString.Base16 as Base16 (decode, encode)

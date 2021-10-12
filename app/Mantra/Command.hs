@@ -7,12 +7,12 @@ module Mantra.Command (
 ) where
 
 
-import Cardano.Api (AsType, IsShelleyBasedEra, ShelleyBasedEra)
-import Data.Version (Version, showVersion)
+import Cardano.Api          (IsShelleyBasedEra, ShelleyBasedEra)
+import Data.Version         (Version, showVersion)
 import Mantra.Command.Types (Mantra(..))
-import Mantra.Types (debugMantra, runMantraToIO)
-import System.Exit (exitFailure)
-import System.IO (hPutStrLn, stderr)
+import Mantra.Types         (debugMantra, runMantraToIO)
+import System.Exit          (exitFailure)
+import System.IO            (hPutStrLn, stderr)
 
 import qualified Mantra.Command.Bech32      as Bech32
 import qualified Mantra.Command.Chain       as Chain
@@ -36,10 +36,9 @@ data Command =
 
 main :: IsShelleyBasedEra era
      => Version
-     -> AsType era
      -> ShelleyBasedEra era
      -> IO ()
-main version asEra sbe =
+main version sbe =
   do
     let
       parser =
@@ -87,8 +86,8 @@ main version asEra sbe =
           Fingerprint{..}  -> Fingerprint.main printer policyId assetName
           InfoUtxo{..}     -> Info.mainUtxo sbe printer configFile addresses
           InfoAddress{..}  -> Info.mainAddress printer addresses
-          InfoTxBody{..}   -> Info.mainTxBody asEra printer txBodyFiles
-          InfoTx{..}       -> Info.mainTx asEra printer txFiles
+          InfoTxBody{..}   -> Info.mainTxBody printer txBodyFiles
+          InfoTx{..}       -> Info.mainTx printer txFiles
           Bech32Decode{..} -> Bech32.mainDecode printer bech32
           Bech32Encode{..} -> Bech32.mainEncode printer humanReadablePart dataPart
           Chain{..}        -> Chain.main printer' configFile outputDirectory continue pointFile

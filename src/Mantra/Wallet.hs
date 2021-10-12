@@ -34,12 +34,12 @@ module Mantra.Wallet (
 ) where
 
 
-import Cardano.Api (AddressAny(..), AddressInEra(..), AddressTypeInEra(ShelleyAddressInEra), AsType(..), Hash, IsCardanoEra, IsShelleyBasedEra(..), PaymentExtendedKey, PaymentExtendedKey, PaymentKey, SigningKey, StakeAddressReference(NoStakeAddress), VerificationKey, castVerificationKey, deserialiseAddress, readFileTextEnvelope, serialiseAddress, verificationKeyHash)
+import Cardano.Api            (AddressAny(..), AddressInEra(..), AddressTypeInEra(ShelleyAddressInEra), AsType(..), Hash, IsCardanoEra, IsShelleyBasedEra(..), PaymentExtendedKey, PaymentExtendedKey, PaymentKey, SigningKey, StakeAddressReference(NoStakeAddress), VerificationKey, castVerificationKey, deserialiseAddress, readFileTextEnvelope, serialiseAddress, verificationKeyHash)
 import Control.Monad.IO.Class (MonadIO)
-import Mantra.Types (MantraM, foistMantraEitherIO, foistMantraMaybe)
+import Mantra.Types           (MantraM, foistMantraEitherIO, foistMantraMaybe)
 
 import qualified Cardano.Api.Shelley  as Shelley (Address(ShelleyAddress), fromShelleyStakeReference)
-import qualified Data.Text            as T (pack, unpack)
+import qualified Data.Text            as T       (pack, unpack)
 
 
 -- | Parse an address.

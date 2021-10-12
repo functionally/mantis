@@ -37,11 +37,11 @@ module Mantra.Transaction (
 ) where
 
 
-import Cardano.Api (AssetId(..), AssetName(..), BuildTx, BuildTxWith(..), Hash, IsCardanoEra(..), IsShelleyBasedEra, KeyWitnessInCtx(..), Lovelace, NetworkId, PaymentKey, PolicyId(..), Quantity(..), ScriptLanguage(..), SimpleScript(..), SimpleScriptV2, SimpleScriptVersion(..), ScriptWitness(..), SlotNo(..), TxAuxScripts(..), TxCertificates(..), TxExtraScriptData(..), TxExtraKeyWitnesses(..), TxFee(..), TxInsCollateral(..), TxIx(..), TxMetadata, TxMetadataInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxOutDatumHash(..), TxScriptValidity(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), Value, Witness(..), estimateTransactionFee, filterValue, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, scriptLanguageSupportedInEra, selectLovelace, serialiseToRawBytesHex, txFeesExplicitInEra, txMetadataSupportedInEra, validityNoUpperBoundSupportedInEra, validityUpperBoundSupportedInEra, valueFromList, valueToList)
-import Cardano.Api.Shelley (ProtocolParameters, TxBodyContent(..), TxId(..), TxIn(..), TxOut(..), TxOutValue(..), UTxO(..), protocolParamTxFeeFixed, protocolParamTxFeePerByte)
+import Cardano.Api            (AssetId(..), AssetName(..), BuildTx, BuildTxWith(..), Hash, IsCardanoEra(..), IsShelleyBasedEra, KeyWitnessInCtx(..), Lovelace, NetworkId, PaymentKey, PolicyId(..), Quantity(..), ScriptLanguage(..), SimpleScript(..), SimpleScriptV2, SimpleScriptVersion(..), ScriptWitness(..), SlotNo(..), TxAuxScripts(..), TxCertificates(..), TxExtraScriptData(..), TxExtraKeyWitnesses(..), TxFee(..), TxInsCollateral(..), TxIx(..), TxMetadata, TxMetadataInEra(..), TxMetadataJsonSchema(..), TxMintValue(..), TxOutDatumHash(..), TxScriptValidity(..), TxUpdateProposal(..), TxValidityLowerBound(..), TxValidityUpperBound(..), TxWithdrawals(..), Value, Witness(..), estimateTransactionFee, filterValue, lovelaceToValue, makeSignedTransaction, makeTransactionBody, metadataFromJson, multiAssetSupportedInEra, negateValue, scriptLanguageSupportedInEra, selectLovelace, serialiseToRawBytesHex, txFeesExplicitInEra, txMetadataSupportedInEra, validityNoUpperBoundSupportedInEra, validityUpperBoundSupportedInEra, valueFromList, valueToList)
+import Cardano.Api.Shelley    (ProtocolParameters, TxBodyContent(..), TxId(..), TxIn(..), TxOut(..), TxOutValue(..), UTxO(..), protocolParamTxFeeFixed, protocolParamTxFeePerByte)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Mantra.Script (mintingScript)
-import Mantra.Types (MantraM, foistMantraEither, foistMantraMaybeIO)
+import Mantra.Script          (mintingScript)
+import Mantra.Types           (MantraM, foistMantraEither, foistMantraMaybeIO)
 
 import qualified Data.Aeson            as A  (Value(..), decodeFileStrict)
 import qualified Data.ByteString.Char8 as BS (pack, unpack)

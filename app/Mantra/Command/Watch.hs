@@ -10,14 +10,14 @@ module Mantra.Command.Watch (
 ) where
 
 
-import Cardano.Api (AssetId(..), AsType(AsAssetName, AsPolicyId), BlockHeader(..), BlockNo(..), ChainPoint(..), ChainTip(..), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), SlotNo(..), TxOut(..), TxOutValue(..), deserialiseFromRawBytes, deserialiseFromRawBytesHex, selectAsset, valueToList)
-import Control.Monad (when)
+import Cardano.Api            (AssetId(..), AsType(AsAssetName, AsPolicyId), BlockHeader(..), BlockNo(..), ChainPoint(..), ChainTip(..), ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..), SlotNo(..), TxOut(..), TxOutValue(..), deserialiseFromRawBytes, deserialiseFromRawBytesHex, selectAsset, valueToList)
+import Control.Monad          (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Mantra.Chain (Reverter, loadPoint, savePoint, watchTransactions)
-import Mantra.Command.Types (Configuration(..), Mantra(..))
-import Mantra.Types (MantraM, foistMantraMaybe)
-import Mantra.Transaction (printValueIO)
-import Mantra.Wallet (readAddress, showAddressInEra)
+import Mantra.Chain           (Reverter, loadPoint, savePoint, watchTransactions)
+import Mantra.Command.Types   (Configuration(..), Mantra(..))
+import Mantra.Types           (MantraM, foistMantraMaybe)
+import Mantra.Transaction     (printValueIO)
+import Mantra.Wallet          (readAddress, showAddressInEra)
 
 import qualified Data.ByteString.Char8 as BS (pack)
 import qualified Options.Applicative   as O

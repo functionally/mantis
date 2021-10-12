@@ -8,17 +8,17 @@ module Mantra.Command.Script (
 ) where
 
 
-import Cardano.Api (ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..))
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Extra (whenJust)
+import Cardano.Api              (ConsensusModeParams(CardanoModeParams), EpochSlots(..), NetworkId(..), NetworkMagic(..))
+import Control.Monad.IO.Class   (MonadIO, liftIO)
+import Control.Monad.Extra      (whenJust)
 import Data.Aeson.Encode.Pretty (encodePretty)
-import Mantra.Command.Types (Configuration(..), Mantra(..))
-import Mantra.Query (adjustSlot, queryTip)
-import Mantra.Script (mintingScript)
-import Mantra.Types (MantraM, SlotRef)
-import Mantra.Wallet (makeVerificationKeyHash, readVerificationKey)
+import Mantra.Command.Types     (Configuration(..), Mantra(..))
+import Mantra.Query             (adjustSlot, queryTip)
+import Mantra.Script            (mintingScript)
+import Mantra.Types             (MantraM, SlotRef)
+import Mantra.Wallet            (makeVerificationKeyHash, readVerificationKey)
 
-import qualified Data.ByteString.Lazy as LBS   (writeFile)
+import qualified Data.ByteString.Lazy as LBS (writeFile)
 import qualified Options.Applicative  as O
 
 

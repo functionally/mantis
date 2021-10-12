@@ -5,7 +5,7 @@ module Mantra.Command.Types (
 ) where
 
 
-import Data.Word (Word32, Word64)
+import Data.Word    (Word32, Word64)
 import Mantra.Types (SlotRef(..))
 
 
